@@ -179,15 +179,21 @@ const Settings = ({ currentUser, theme, setTheme }) => {
     .join("")
     .toUpperCase() || "U";
 
+    useEffect(() => {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      setTheme(savedTheme);
+      document.documentElement.classList.add(savedTheme);
+    }, []);
+
   return (
     <div className={`min-h-screen ${bgColor} p-4 md:p-8 lg:p-12`}>
       <Toaster position="top-center" />
       
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-blue-300 dark:border-blue-600`}>
+        <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-[#bc4e9c]`}>
           <h1 className="text-4xl lg:text-5xl font-bold mb-3 flex items-center gap-3">
-            Settings <Shield className="text-blue-500" size={40} />
+            Settings <Shield className="text-[#bc4e9c]" size={40} />
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
             Manage your account preferences and security
@@ -197,40 +203,40 @@ const Settings = ({ currentUser, theme, setTheme }) => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
           <div className="lg:col-span-1">
-            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-blue-300 dark:border-blue-600 text-center`}>
+            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-[#bc4e9c] text-center`}>
               <div className="relative inline-block mb-6">
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+                <div className="w-32 h-32 bg-gradient-to-t from-[#bc4e9c] to-[#f80759] rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-lg">
                   {initials}
                 </div>
-                <div className="absolute -bottom-2 -right-2 h-8 w-8 bg-green-500 border-4 border-white dark:border-blue-900 rounded-full"></div>
+                <div className="absolute -bottom-2 -right-2 h-8 w-8 bg-green-500 border-4 border-white rounded-full"></div>
               </div>
               <h2 className="text-2xl font-bold mb-2">{currentUser?.name}</h2>
               <p className="text-gray-600 dark:text-gray-400 break-all">{currentUser?.email}</p>
               
               {/* Theme Toggle */}
-              <div className="mt-8 pt-6 border-t-2 border-blue-300 dark:border-blue-600">
+              {/* <div className="mt-8 pt-6 border-t-2 border-blue-300 dark:border-blue-600">
                 <button
                   onClick={handleThemeToggle}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold flex items-center justify-center gap-3"
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-black dark:text-white px-6 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold flex items-center justify-center gap-3"
                 >
                   {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
                   {theme === "dark" ? "Light Mode" : "Dark Mode"}
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
 
           {/* Settings Forms */}
           <div className="lg:col-span-2 space-y-8">
             {/* Profile Information */}
-            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-blue-300 dark:border-blue-600`}>
+            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-[#bc4e9c]`}>
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <User className="text-blue-500" size={28} />
+                <User className="text-[#bc4e9c]" size={28} />
                 Profile Information
               </h2>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-bold mb-2 ">
                     Full Name
                   </label>
                   <input
@@ -238,12 +244,12 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-6 py-4 rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-6 py-4 rounded-xl border-2 border-[#bc4e9c] focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Enter your full name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-bold mb-2">
                     Email Address
                   </label>
                   <input
@@ -251,14 +257,14 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-6 py-4 rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-6 py-4 rounded-xl border-2 border-[#bc4e9c]  focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Enter your email"
                   />
                 </div>
                 <button
                   onClick={handleSaveProfile}
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-[#bc4e9c] to-[#f80759] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-[#733060] hover:to-[#7d042c] transition-all font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save size={20} />
                   {loading ? "Saving..." : "Save Profile Changes"}
@@ -267,14 +273,14 @@ const Settings = ({ currentUser, theme, setTheme }) => {
             </div>
 
             {/* Change Password */}
-            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-blue-300 dark:border-blue-600`}>
+            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-[#bc4e9c]`}>
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <Lock className="text-blue-500" size={28} />
+                <Lock className="text-[#bc4e9c]" size={28} />
                 Change Password
               </h2>
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-bold mb-2 ">
                     Current Password
                   </label>
                   <input
@@ -282,12 +288,12 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                     name="currentPassword"
                     value={formData.currentPassword}
                     onChange={handleInputChange}
-                    className="w-full px-6 py-4 rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-6 py-4 rounded-xl border-2 border-[#bc4e9c] focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Enter current password"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-bold mb-2 ">
                     New Password
                   </label>
                   <input
@@ -295,12 +301,12 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                     name="newPassword"
                     value={formData.newPassword}
                     onChange={handleInputChange}
-                    className="w-full px-6 py-4 rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-6 py-4 rounded-xl border-2 border-[#bc4e9c]  focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Enter new password (min 6 characters)"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2 text-gray-700 dark:text-gray-200">
+                  <label className="block text-sm font-bold mb-2 ">
                     Confirm New Password
                   </label>
                   <input
@@ -308,7 +314,7 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleInputChange}
-                    className="w-full px-6 py-4 rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-6 py-4 rounded-xl border-2 border-[#bc4e9c]  focus:outline-none focus:ring-2 focus:ring-pink-500"
                     placeholder="Confirm new password"
                   />
                 </div>
@@ -324,9 +330,9 @@ const Settings = ({ currentUser, theme, setTheme }) => {
             </div>
 
             {/* Notifications */}
-            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-blue-300 dark:border-blue-600`}>
+            <div className={`${cardGradient} rounded-3xl shadow-2xl p-8 border-2 border-[#bc4e9c]`}>
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <Bell className="text-blue-500" size={28} />
+                <Bell className="text-[#bc4e9c]" size={28} />
                 Notification Preferences
               </h2>
               <div className="space-y-4">
@@ -338,7 +344,7 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                 ].map(({ key, label, desc }) => (
                   <div
                     key={key}
-                    className="flex items-center justify-between p-6 bg-blue-500/10 rounded-xl border-2 border-blue-300 dark:border-blue-600 hover:bg-blue-500/15 transition-all"
+                    className="flex items-center justify-between p-6 bg-blue-500/10 rounded-xl border-2 border-[#bc4e9c] hover:bg-blue-500/15 transition-all"
                   >
                     <div className="flex-1">
                       <h3 className="font-bold text-lg mb-1">{label}</h3>
@@ -369,7 +375,7 @@ const Settings = ({ currentUser, theme, setTheme }) => {
               </div>
               <button
                 onClick={handleSaveNotifications}
-                className="w-full mt-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all font-bold flex items-center justify-center gap-2"
+                className="w-full mt-6 bg-gradient-to-t from-[#bc4e9c] to-[#f80759] text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl hover:from-[#733060] hover:to-[#7d042c] transition-all font-bold flex items-center justify-center gap-2"
               >
                 <Save size={20} />
                 Save Notification Preferences
