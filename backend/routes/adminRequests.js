@@ -3,13 +3,14 @@ import AdminRequest from '../models/AdminRequest.js';
 import User from '../models/User.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import checkSuperAdmin from '../middleware/checkSuperAdmin.js';
+import { logOperation } from "../middleware/logOperation.js";
 
 const router = express.Router();
 
 // @route   POST /api/admin-requests
 // @desc    Submit admin access request
 // @access  Private (authenticated users)
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, logOperation("REQUEST_ADMIN_ACCESS"), async (req, res) => {
   try {
     const { reason } = req.body;
     const userId = req.user._id;
@@ -170,7 +171,7 @@ router.get('/stats', checkSuperAdmin, async (req, res) => {
 // @route   PUT /api/admin-requests/:id/approve
 // @desc    Approve admin request
 // @access  Private (super admin only)
-router.put('/:id/approve', checkSuperAdmin, async (req, res) => {
+router.put('/:id/approve', checkSuperAdmin,  logOperation("APPROVED_ADMIN_ACCESS"), async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -221,7 +222,7 @@ router.put('/:id/approve', checkSuperAdmin, async (req, res) => {
 // @route   PUT /api/admin-requests/:id/reject
 // @desc    Reject admin request
 // @access  Private (super admin only)
-router.put('/:id/reject', checkSuperAdmin, async (req, res) => {
+router.put('/:id/reject', checkSuperAdmin, logOperation("REJECTED_ADMIN_ACCESS"), async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -267,7 +268,7 @@ router.put('/:id/reject', checkSuperAdmin, async (req, res) => {
 // @route   DELETE /api/admin-requests/:id
 // @desc    Delete admin request
 // @access  Private (super admin only)
-router.delete('/:id', checkSuperAdmin, async (req, res) => {
+router.delete('/:id', checkSuperAdmin, logOperation("DELETE_ADMIN_ACCESS"), async (req, res) => {
   try {
     const { id } = req.params;
 
