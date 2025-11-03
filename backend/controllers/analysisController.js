@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import Upload from '../models/Upload.js';
+import User from '../models/User.js';
 
 // Get chart data for analytics
 export const chartData = async (req, res) => {
@@ -61,6 +63,131 @@ export const chartData = async (req, res) => {
       message: 'Failed to fetch chart data',
       error: error.message
     });
+  }
+};
+
+// Function to view user details
+export const viewUserDetails = async (req, res) => {
+    try {
+    const userId = req.params.userId;
+
+    // Fetch user details
+    const user = await User.findById(userId).select("name email role");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Fetch stats
+    const totalUploads = await Upload.countDocuments({ userId });
+    const filesProcessed = await Upload.countDocuments({ userId, status: "processed" });
+    const uploads = await Upload.find({ userId });
+
+    const totalBytes = uploads.reduce((sum, file) => sum + (file.size || 0), 0);
+    const storageUsedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+    const storageUsedPercent = Math.min(Math.round((storageUsedGB / 100) * 100), 100);
+
+    let storageUsed;
+    let storageUnit;
+
+    if (totalBytes < 1024 * 1024 * 1024) {
+        storageUsed = (totalBytes / (1024 * 1024)).toFixed(2);
+        storageUnit = "MB";
+    } else {
+        storageUsed = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+        storageUnit = "GB";
+    }
+
+    const totalReportCount = await Upload.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } }, // 👈 Convert to ObjectId
+      { $group: { _id: null, total: { $sum: "$reportCount" } } }
+    ]);
+ 
+    const activeReports = totalReportCount.length > 0 ? totalReportCount[0].total : 0;
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const chartCount = await Upload.aggregate([
+                            { 
+                                $match: { 
+                                userId: new mongoose.Types.ObjectId(userId),
+                                createdAt: { $gte: startOfMonth } // 👈 Correctly inside $match
+                                } 
+                            }, // Filter by user
+                            {
+                              $group: {
+                                _id: null,
+                                total: { $sum: "$chartCount" }, // 👈 Sum all reportCount fields
+                              }
+                            }
+                          ]);
+    const chartsGenerated = chartCount.length > 0 ? chartCount[0].total : 0;
+
+
+    const stats = {
+      totalUploads,
+      filesProcessed,
+      storageUsedPercent: storageUsedPercent,
+      storageUsed,
+      storageUnit,
+      storageQuota: 100,
+      activeReports,
+      chartsGenerated: chartsGenerated,
+    };
+
+    res.json({ user, stats });
+  } catch (error) {
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({ message: "Error fetching dashboard statistics" });
+  }
+};
+
+// update chart generated count
+export const chartCountUpdate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const upload = await Upload.findByIdAndUpdate(
+      id,
+      { $inc: { chartCount: 1 } }, // 🔼 Increment by 1
+      { new: true }
+    );
+
+    if (!upload)
+      return res.status(404).json({ success: false, error: "Document not found" });
+
+    res.json({
+      success: true,
+      message: "Chart count updated successfully",
+      data: upload,
+    });
+  } catch (err) {
+    console.error("Error incrementing chart count:", err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+};
+
+// update report generated count
+export const reportCountUpdate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const upload = await Upload.findByIdAndUpdate(
+      id,
+      { $inc: { reportCount: 1 } }, // 🔼 Increment by 1
+      { new: true }
+    );
+
+    if (!upload)
+      return res.status(404).json({ success: false, error: "Document not found" });
+
+    res.json({
+      success: true,
+      message: "Report count updated successfully",
+      data: upload,
+    });
+  } catch (err) {
+    console.error("Error incrementing report count:", err);
+    res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
