@@ -1,7 +1,7 @@
 // exportUtils.js - Complete utility functions for data export
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 
 /**
@@ -74,10 +74,10 @@ export const exportToJSON = (data, fileName = 'data') => {
 };
 
 /**
- * Export chart to PNG format - IMPROVED VERSION
+ * Export chart to PNG format
  */
-export const exportChartToPNG = async (chartRef, fileName = 'chart') => {
-  if (!chartRef) {
+export const exportChartToPNG = async (chartElement, fileName = 'chart') => {
+  if (!chartElement) {
     throw new Error('Chart reference is not available. Please generate a chart first.');
   }
 
@@ -85,35 +85,21 @@ export const exportChartToPNG = async (chartRef, fileName = 'chart') => {
     // Add a small delay to ensure chart is fully rendered
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const canvas = await html2canvas(chartRef, {
+    const dataUrl = await toPng(chartElement, {
       backgroundColor: '#ffffff',
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-      windowWidth: chartRef.scrollWidth,
-      windowHeight: chartRef.scrollHeight,
+      pixelRatio: 2,
+      cacheBust: true,
+      skipFonts: false,
+      width: chartElement.scrollWidth,
+      height: chartElement.scrollHeight,
     });
-
-    // Convert canvas to blob and download
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('Failed to create image blob'));
-          return;
-        }
-        
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `${fileName}_${Date.now()}.png`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        resolve();
-      }, 'image/png');
-    });
+    
+    const link = document.createElement('a');
+    link.download = `${fileName}_${Date.now()}.png`;
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } catch (error) {
     console.error('Error exporting chart to PNG:', error);
     throw new Error(`Failed to export chart as PNG: ${error.message}`);
@@ -121,7 +107,7 @@ export const exportChartToPNG = async (chartRef, fileName = 'chart') => {
 };
 
 /**
- * Export chart to PDF format - IMPROVED VERSION
+ * Export chart to PDF format - FIXED VERSION
  */
 export const exportChartToPDF = async (chartRef, fileName = 'chart') => {
   if (!chartRef) {
@@ -132,21 +118,26 @@ export const exportChartToPDF = async (chartRef, fileName = 'chart') => {
     // Add a small delay to ensure chart is fully rendered
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const canvas = await html2canvas(chartRef, {
+    // Use html-to-image instead of html2canvas to support OKLCH colors
+    const imgData = await toPng(chartRef, {
       backgroundColor: '#ffffff',
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-      windowWidth: chartRef.scrollWidth,
-      windowHeight: chartRef.scrollHeight,
+      pixelRatio: 2,
+      cacheBust: true,
+      skipFonts: false,
+      width: chartRef.scrollWidth,
+      height: chartRef.scrollHeight,
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    
-    // Calculate dimensions
-    const imgWidthPx = canvas.width;
-    const imgHeightPx = canvas.height;
+    // Create a temporary image to get actual dimensions
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imgData;
+    });
+
+    const imgWidthPx = img.width;
+    const imgHeightPx = img.height;
     
     // Convert to mm for jsPDF (assuming 96 DPI)
     const imgWidthMm = (imgWidthPx * 25.4) / 96;
