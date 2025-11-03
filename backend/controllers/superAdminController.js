@@ -470,6 +470,8 @@ export const updateSettings = async (req, res) => {
   }
 };
 
+
+
 // Helper function
 function getTimeAgo(date) {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
