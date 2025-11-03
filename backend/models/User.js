@@ -12,9 +12,10 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active', 'Inactive'],
+      enum: ['Active', 'Inactive', 'Suspended'],
       default: 'Active'
-    }
+    },
+    online: { type: Boolean, default: 0 },
   },
   { timestamps: true }
 );
