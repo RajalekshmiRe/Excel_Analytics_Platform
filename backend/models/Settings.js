@@ -11,7 +11,11 @@ const settingsSchema = new mongoose.Schema({
   },
   allowedFormats: {
     type: [String],
-    default: ['.xlsx', '.xls', '.csv']
+    default: ['.xlsx', '.xls', '.csv', '.json']
+  },
+  chartExportFormats: {
+    type: [String],
+    default: ['.pdf', '.png', '.svg', 'jpg']
   },
   maintenanceMode: {
     type: Boolean,
@@ -28,6 +32,14 @@ const settingsSchema = new mongoose.Schema({
   autoApproveAdmins: {
     type: Boolean,
     default: false
+  },
+  dataMapEnabled: {
+    type: Boolean,
+    default: true
+  },
+  autoAnalytics : {
+    type: Boolean,
+    default: true
   },
   requireAdminApproval: {
     type: Boolean,
