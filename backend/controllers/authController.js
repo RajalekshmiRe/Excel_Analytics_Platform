@@ -73,6 +73,9 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    user.online = 1;           // mark as online
+    await user.save();
+
     // Generate JWT token
     const token = jwt.sign(
       { id: user._id },
@@ -191,5 +194,20 @@ export const changePassword = async (req, res) => {
       message: "Failed to change password", 
       error: error.message 
     });
+  }
+};
+
+// logout
+export const logoutUser = async (req, res) => {
+  try {
+    const { id } = req.params; // assuming you have auth middleware that sets req.user
+
+    // Mark user as offline
+    await User.findByIdAndUpdate(id, { online: 0 });
+
+    res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
