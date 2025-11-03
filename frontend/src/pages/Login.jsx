@@ -1,162 +1,3 @@
-// import React, { useState } from "react";
-// import API from "../api";
-// import { useNavigate } from "react-router-dom";
-
-// function Login() {
-//   const [email, setEmail] = useState("");
-//   const [password, setPassword] = useState("");
-//   const navigate = useNavigate();
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     try {
-//       const res = await API.post("/auth/login", { email, password });
-
-//       // ✅ Save both token and user
-//       localStorage.setItem("token", res.data.token);
-//       // localStorage.setItem("user", JSON.stringify(res.data.user));
-// // Save token always
-//  const { _id, name, email: userEmail } = res.data;
-// localStorage.setItem("user", JSON.stringify({ _id, name, email: userEmail }));
-
-// console.log("Login response:", res.data);
-// console.log("User being saved:", { _id, name, email: userEmail });
-
-//       navigate("/dashboard");
-//     } catch (err) {
-//       alert(err.response?.data?.message || "Login failed");
-//     }
-//   };
-
-//   return (
-//     <div className="flex items-center justify-center h-screen bg-gray-100">
-//       <form
-//         onSubmit={handleSubmit}
-//         className="bg-white p-6 rounded shadow-md w-80"
-//       >
-//         <h1 className="text-xl font-bold mb-4">Login</h1>
-//         <input
-//           type="email"
-//           placeholder="Email"
-//           className="border p-2 w-full mb-3"
-//           value={email}
-//           onChange={(e) => setEmail(e.target.value)}
-//         />
-//         <input
-//           type="password"
-//           placeholder="Password"
-//           className="border p-2 w-full mb-3"
-//           value={password}
-//           onChange={(e) => setPassword(e.target.value)}
-//         />
-//         <button
-//           type="submit"
-//           className="bg-blue-500 text-white w-full py-2 rounded"
-//         >
-//           Login
-//         </button>
-//       </form>
-//     </div>
-//   );
-// }
-
-// export default Login;
-// import React, { useState } from 'react';
-// import { useNavigate, Link } from 'react-router-dom';
-// import axios from 'axios';
-// import './Auth.css';
-
-// const Login = () => {
-//   const [formData, setFormData] = useState({
-//     email: '',
-//     password: ''
-//   });
-//   const [error, setError] = useState('');
-//   const [loading, setLoading] = useState(false);
-//   const navigate = useNavigate();
-
-//   const handleChange = (e) => {
-//     setFormData({
-//       ...formData,
-//       [e.target.name]: e.target.value
-//     });
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setError('');
-//     setLoading(true);
-
-//     try {
-//       const response = await axios.post('http://localhost:5000/api/auth/login', formData);
-      
-//       // Store token and user data
-//       localStorage.setItem('token', response.data.token);
-//       localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-//       // Navigate to dashboard
-//       navigate('/dashboard');
-//     } catch (err) {
-//       setError(err.response?.data?.message || 'Login failed. Please try again.');
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="auth-container">
-//       <div className="auth-card">
-//         <div className="auth-header">
-//           <h1>Excel Analytics Platform</h1>
-//           <h2>Welcome Back!</h2>
-//           <p>Login to access your dashboard</p>
-//         </div>
-
-//         <form onSubmit={handleSubmit} className="auth-form">
-//           {error && <div className="error-message">{error}</div>}
-          
-//           <div className="form-group">
-//             <label htmlFor="email">Email Address</label>
-//             <input
-//               type="email"
-//               id="email"
-//               name="email"
-//               placeholder="Enter your email"
-//               value={formData.email}
-//               onChange={handleChange}
-//               required
-//             />
-//           </div>
-
-//           <div className="form-group">
-//             <label htmlFor="password">Password</label>
-//             <input
-//               type="password"
-//               id="password"
-//               name="password"
-//               placeholder="Enter your password"
-//               value={formData.password}
-//               onChange={handleChange}
-//               required
-//             />
-//           </div>
-
-//           <button type="submit" className="btn-primary" disabled={loading}>
-//             {loading ? 'Logging in...' : 'Login'}
-//           </button>
-//         </form>
-
-//         <div className="auth-footer">
-//           <p>Don't have an account? <Link to="/register" className="link">Register here</Link></p>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Login;
-
-
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 
@@ -226,12 +67,14 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-xs">
+      <div className="w-full max-w-4/12">
         <div className="bg-white rounded-3xl shadow-2xl p-10 border border-gray-100">
           <div className="text-center mb-10">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-lg">
-              <span className="text-white text-3xl font-bold">EA</span>
-            </div>
+            <a href="/">
+                <div className="w-20 h-20 bg-gradient-to-br from-[#f80759] to-[#bc4e9c] rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+                <span className="text-white text-3xl font-bold">EA</span>
+                </div>
+            </a>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Welcome Back</h1>
             <p className="text-gray-600 text-lg">Login to your account</p>
           </div>
@@ -282,7 +125,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-3.5 rounded-lg font-bold text-base hover:from-blue-700 hover:to-cyan-700 transition-all shadow-lg hover:shadow-xl ${
+              className={`w-full bg-gradient-to-t from-[#f80759] to-[#bc4e9c] text-white py-3.5 rounded-lg font-bold text-base hover:from-[#a3053a] hover:to-[#6c2d5a] transition-all shadow-lg hover:shadow-xl ${
                 loading ? 'opacity-60 cursor-not-allowed' : ''
               }`}
             >
@@ -290,10 +133,10 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="mt-8 text-center border-t border-gray-200 pt-6">
+          <div className="mt-8 text-center border-t border-gray-200 pt-5">
             <p className="text-gray-700 text-sm">
               Don't have an account?{' '}
-              <a href="/register" className="text-blue-600 hover:text-cyan-700 font-bold underline">
+              <a href="/register" className="text-[#f80759] hover:text-[#bc4e9c] font-bold underline">
                 Register
               </a>
             </p>
