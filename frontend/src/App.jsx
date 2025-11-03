@@ -1,29 +1,3 @@
-// import React from "react";
-// import { Routes, Route } from "react-router-dom";
-// import DashboardHome from "./pages/DashboardHome";
-// import Login from "./pages/Login";
-// import Register from "./pages/Register";
-// import ProtectedRoute from "./ProtectedRoute"; // ✅ Import the ProtectedRoute component
-// function App() {
-//   return (
-//       <Routes>
-//         {/* Public routes */}
-//         <Route path="/login" element={<Login />} />
-//         <Route path="/register" element={<Register />} />
-
-//         {/* Protected dashboard route */}
-//         <Route element={<ProtectedRoute />}>
-//           <Route path="/dashboard" element={<DashboardHome />} />
-//         </Route>
-
-//         {/* Redirect all unknown routes to login */}
-//         <Route path="*" element={<Login />} />
-//       </Routes>
-//   );
-// }
-// export default App;
-
-
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
@@ -50,6 +24,7 @@ import AuditLogs from './pages/superadmin/AuditLogs';
 import SuperAdminSettings from './pages/superadmin/SuperAdminSettings';
 
 import './index.css';
+import Contacts from './pages/superadmin/Contacts';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -208,6 +183,16 @@ function App() {
             <SuperAdminProtectedRoute>
               <SuperAdminLayout>
                 <AuditLogs />
+              </SuperAdminLayout>
+            </SuperAdminProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/superadmin/contact" 
+          element={
+            <SuperAdminProtectedRoute>
+              <SuperAdminLayout>
+                <Contacts />
               </SuperAdminLayout>
             </SuperAdminProtectedRoute>
           } 
