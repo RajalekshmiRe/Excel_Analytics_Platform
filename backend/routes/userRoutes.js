@@ -1,15 +1,15 @@
 import express from "express";
-import { registerUser, loginUser } from "../controllers/userController.js";
+import { registerUser, loginUser, logoutUser } from "../controllers/userController.js";
 import upload from "../middleware/upload.js";
 import Upload from "../models/Upload.js"; // ✅ Use your Upload.js model
 import fs from "fs";
 import { protect } from "../middleware/authMiddleware.js";
-
+import { logOperation } from "../middleware/logOperation.js";
 
 const router = express.Router();
 
 // Single file upload route
-router.post("/", upload.single("file"), (req, res) => {
+router.post("/", upload.single("file"), logOperation("FILE_UPLOAD"), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded" });
   }
@@ -45,8 +45,12 @@ router.delete("/uploads/:fileId", protect, async (req, res) => {
 });
 
 // Auth routes
-router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post("/register", logOperation("REGISTER"), registerUser);
+router.post("/login", logOperation("LOGIN"), loginUser);
+router.post("/logout", logOperation("LOGOUT"), logoutUser);
+
+
+
 // In your auth routes (e.g., userRoutes.js)
 router.post("/logout", (req, res) => {
   // If using cookies, clear them
