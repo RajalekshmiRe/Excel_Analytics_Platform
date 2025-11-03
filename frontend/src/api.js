@@ -1,21 +1,3 @@
-// import axios from "axios";
-
-// const API = axios.create({
-//   baseURL: "http://localhost:5000/api",
-// });
-// // ✅ FIXED: use the API instance instead of axios
-// export const getUploadsHistory = async () => {
-//   try {
-//     const res = await API.get("/uploads/history");
-//     return res.data;
-//   } catch (error) {
-//     console.error("Error fetching uploads history:", error);
-//     throw error;
-//   }
-// };
-// export default API;
-
-
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
@@ -54,7 +36,7 @@ api.interceptors.response.use(
   (error) => {
     console.error('❌ Response error:', error.response?.status, error.config?.url);
     
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (error.response?.status === 401) {
       console.error('🚫 Authentication failed - clearing tokens and redirecting');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -66,9 +48,39 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    // For 403 errors, handle gracefully (don’t logout)
+    else if (error.response?.status === 403) {
+      console.warn('⚠️ Forbidden: Access denied to resource');
+      // Optionally show a toast or alert
+      // alert('You do not have permission to perform this action.');
+    } 
+    // For file-related or 404 errors, just notify
+    else if (error.response?.status === 404) {
+      console.warn('📁 Resource not found:', url);
+      // alert('Requested file not found.');
+    } 
+    // For any other errors
+    else {
+      console.warn('⚠️ Unexpected error:', error.response?.status);
+    }
     return Promise.reject(error);
   }
 );
+
+// User API Calls 
+export const guestAPI = {
+  contact: (data) => api.post('/contact', data),
+};
+
+// User API Calls 
+export const userAPI = {
+  requestAdminAccess: (data) => api.post('/request', data),
+  getUserRequest: (userId) => api.get(`/request/${userId}`),
+
+  // To update chart and report counts
+  updateChart: (id) => api.patch(`/analysis/update-chart/${id}`),
+  updateReport: (id) => api.patch(`/analysis/update-report/${id}`),
+};
 
 // Admin API calls
 export const adminAPI = {
@@ -116,10 +128,20 @@ export const adminAPI = {
   
   // Analytics
   getAnalytics: () => api.get('/admin/analytics'),
+
+  // Password-reset
+  resetUserPassword: (data) => api.post('/admin/user-password-reset', data),
+
+  // Get single user details
+  getUserStats: (userId) => api.get(`/analysis/stats/${userId}`),
+
+  downloadFile: (fileId) => api.get(`/files/download/${fileId}`),
+
 };
 
 // Super Admin API calls
 export const superAdminAPI = {
+
   // Dashboard
   getStats: () => api.get('/superadmin/stats'),
   getDashboardStats: () => api.get('/superadmin/stats'),
@@ -246,6 +268,15 @@ export const superAdminAPI = {
     api.get(`/superadmin/analytics/users?startDate=${startDate}&endDate=${endDate}`),
   getFileAnalytics: (startDate, endDate) => 
     api.get(`/superadmin/analytics/files?startDate=${startDate}&endDate=${endDate}`),
+
+  // Fetch contact list
+  getAllContacts: () => api.get("/contacts"),
+
+};
+
+// User API Calls 
+export const authAPI = {
+  logout: (id) => api.patch(`/auth/logout/${id}`),
 };
 
 export default api;
