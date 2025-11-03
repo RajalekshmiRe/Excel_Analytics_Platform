@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import Upload from "../models/Upload.js";
 import Settings from '../models/Settings.js';
+import Operation from "../models/Operation.js";
 
 // Get all users
 export const getAllUsers = async (req, res) => {
@@ -146,18 +148,68 @@ export const getDashboardStats = async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const activeUsers = await User.countDocuments({
-      updatedAt: { $gte: sevenDaysAgo }
-    });
+    const twoMinutesAgo = new Date(Date.now() - 1 * 60 * 1000); // 2 minutes in milliseconds
+
+    const activeUsers = await User.countDocuments({ online: true });
 
     const totalUploads = await Upload.countDocuments();
 
-    const uploads = await Upload.find();
-    const storageUsed = uploads.reduce((total, upload) => total + (upload.size || 0), 0);
-    const storageUsedGB = (storageUsed / (1024 * 1024 * 1024)).toFixed(2);
+    const totalOperations = await Operation.countDocuments();
 
-    const chartsGenerated = await Upload.countDocuments({ chartGenerated: true });
+
+    const uploads = await Upload.find();
+    const totalBytes = uploads.reduce((sum, file) => sum + (file.size || 0), 0);
+    const storageUsedGB = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+
+    let storageUsed;
+    let storageUnit;
+
+    if (totalBytes < 1024 * 1024 * 1024) {
+        storageUsed = (totalBytes / (1024 * 1024)).toFixed(2);
+        storageUnit = "MB";
+    } else {
+        storageUsed = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+        storageUnit = "GB";
+    }
+
+    const totalReportCount = await Upload.aggregate([
+                            {
+                                $group: {
+                                _id: null,
+                                total: { $sum: "$reportCount" } // 👈 Sum all reportCount fields
+                                }
+                            }
+                            ]);
+    const reportsCreated = totalReportCount.length > 0 ? totalReportCount[0].total : 0;
+
+    const monthChartCount = await Upload.aggregate([
+                            {
+                              $group: {
+                                _id: null,
+                                total: { $sum: "$chartCount" }, // 👈 Sum all reportCount fields
+                              }
+                            }
+                          ]);
+    const chartsGenerated = monthChartCount.length > 0 ? monthChartCount[0].total : 0;
+    
+
+    // system Health
+     const dbState = mongoose.connection.readyState === 1; // 1 = connected
+
+    // Add other checks (cache, external API, etc.)
+    const allSystemsOperational = dbState ? "100": "0"; 
+
+    // Uptime
+    const serverStartTime = req.app.locals.serverStartTime; // 👈 access here
+    const uptimeMs = Date.now() - serverStartTime;
+    const uptimeHours = Math.floor(uptimeMs / 1000 / 60 / 60);
+    const uptimeMinutes = Math.floor((uptimeMs / 1000 / 60) % 60);
+
+    // success rate
+    const totalOps = await Operation.countDocuments({});
+    const successfulOps = await Operation.countDocuments({ status: "success" });
+
+    const successRate = totalOps > 0 ? ((successfulOps / totalOps) * 100).toFixed(2) : 0;
 
     res.json({
       success: true,
@@ -165,15 +217,19 @@ export const getDashboardStats = async (req, res) => {
         totalUsers,
         activeUsers,
         totalUploads,
-        totalStorage: parseFloat(storageUsedGB),
-        systemHealth: 98,
-        uptime: '99.9%',
+        totalStorage: parseFloat(storageUsed),
+        storageUsed,
+        storageUnit,
+        systemHealth: allSystemsOperational,
+        uptime: `${uptimeHours}h ${uptimeMinutes}m`,
+        successRate: successRate,
         chartsGenerated: chartsGenerated || 0,
-        apiCalls: 1247,
-        pendingReports: 5,
-        completedReports: 342,
-        failedUploads: 3,
-        successfulUploads: totalUploads - 3
+        reportsCreated: reportsCreated || 0,
+        apiCalls: totalOperations,
+        pendingReports: 0,
+        completedReports: reportsCreated,
+        failedUploads: 0,
+        successfulUploads: totalUploads
       }
     });
   } catch (error) {
@@ -245,7 +301,7 @@ export const getRecentActivity = async (req, res) => {
     const activities = recentUploads.map(upload => ({
       id: upload._id,
       user: upload.userId?.name || 'Unknown',
-      action: `Uploaded ${upload.fileName}`,
+      action: `Uploaded ${upload.originalName}`,
       time: getTimeAgo(upload.createdAt),
       type: 'upload'
     }));
@@ -275,11 +331,11 @@ export const getAllFiles = async (req, res) => {
       id: file._id,
       userId: file.userId?._id,
       userName: file.userId?.name || 'Unknown',
-      fileName: file.fileName,
+      fileName: file.filename,
       uploadDate: file.createdAt,
       size: formatFileSize(file.size || 0),
       status: file.status || 'Processed',
-      filePath: file.filePath
+      filePath: file.path
     }));
 
     res.json({
@@ -360,7 +416,7 @@ export const getSettings = async (req, res) => {
 // Update settings
 export const updateSettings = async (req, res) => {
   try {
-    const { siteName, maxFileSize, allowedFormats, maintenanceMode, emailNotifications, storageLimit } = req.body;
+    const { siteName, maxFileSize, allowedFormats, chartExportFormats, maintenanceMode, emailNotifications, storageLimit, dataMapEnabled, autoAnalytics} = req.body;
 
     let settings = await Settings.findOne({ isActive: true });
 
@@ -369,18 +425,24 @@ export const updateSettings = async (req, res) => {
         siteName,
         maxFileSize,
         allowedFormats,
+        chartExportFormats,
         maintenanceMode,
         emailNotifications,
         storageLimit,
-        isActive: true
+        isActive: true,
+        dataMapEnabled,
+        autoAnalytics
       });
     } else {
       settings.siteName = siteName;
       settings.maxFileSize = maxFileSize;
       settings.allowedFormats = allowedFormats;
+      settings.chartExportFormats = chartExportFormats;
       settings.maintenanceMode = maintenanceMode;
       settings.emailNotifications = emailNotifications;
       settings.storageLimit = storageLimit;
+      settings.dataMapEnabled = dataMapEnabled,
+      settings.autoAnalytics = autoAnalytics
       settings.updatedAt = new Date();
     }
 
