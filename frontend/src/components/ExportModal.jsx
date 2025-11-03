@@ -7,8 +7,9 @@ import {
   exportToExcel,
   exportToJSON 
 } from '../utils/exportUtils';
+import { userAPI } from "../api";
 
-const ExportModal = ({ isOpen, onClose, data, fileName, chartRef }) => {
+const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) => {
   const [exporting, setExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState('');
   const [exportError, setExportError] = useState('');
@@ -68,6 +69,8 @@ const handleExport = async (type) => {
         throw new Error('Unknown export type');
     }
 
+    const res = await userAPI.updateReport(uploadData.id);
+
     setTimeout(() => {
       setExportSuccess('');
     }, 3000);
@@ -88,7 +91,7 @@ const handleExport = async (type) => {
       className={`${
         available
           ? `bg-gradient-to-br ${color} hover:shadow-xl hover:scale-105 cursor-pointer`
-          : 'bg-gray-200 cursor-not-allowed opacity-50'
+          : 'bg-black cursor-not-allowed opacity-50'
       } rounded-2xl p-6 text-white shadow-lg transition-all transform disabled:transform-none disabled:cursor-not-allowed`}
     >
       <div className="flex items-start justify-between mb-4">
@@ -109,22 +112,22 @@ const handleExport = async (type) => {
     </button>
   );
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+return (
+    <div className="fixed inset-0 bg-black/60 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-900 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden border border-gray-200 dark:border-gray-700">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 px-8 py-6">
+        <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 dark:from-green-600 dark:via-emerald-600 dark:to-teal-600 px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-3xl font-bold text-white flex items-center gap-3">
                 <Download size={32} />
                 Export Your Data
               </h2>
-              <p className="text-green-100 mt-1">Choose your preferred format</p>
+              <p className="text-green-100 dark:text-green-200 mt-1">Choose your preferred format</p>
             </div>
             <button
               onClick={onClose}
-              className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-12 h-12 bg-white/20 dark:bg-white/30 backdrop-blur-sm rounded-xl flex items-center justify-center text-white hover:bg-white/30 dark:hover:bg-white/40 transition-all"
             >
               <X size={24} />
             </button>
@@ -132,27 +135,27 @@ const handleExport = async (type) => {
         </div>
 
         {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="p-8 overflow-y-auto max-h-[calc(90vh-180px)] bg-[#dfdfa7cc]">
           {/* Alerts */}
           {exportSuccess && (
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-5 shadow-lg mb-6 animate-pulse">
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 dark:from-green-600 dark:to-emerald-600 text-white rounded-2xl p-5 shadow-lg mb-6 animate-pulse">
               <div className="flex items-center gap-3">
                 <CheckCircle size={24} />
                 <div>
                   <h3 className="font-bold text-lg">Success!</h3>
-                  <p className="text-sm text-green-100">{exportSuccess}</p>
+                  <p className="text-sm text-green-100 dark:text-green-200">{exportSuccess}</p>
                 </div>
               </div>
             </div>
           )}
 
           {exportError && (
-            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl p-5 shadow-lg mb-6">
+            <div className="bg-gradient-to-r from-red-500 to-pink-500 dark:from-red-600 dark:to-pink-600 text-white rounded-2xl p-5 shadow-lg mb-6">
               <div className="flex items-center gap-3">
                 <X size={24} />
                 <div>
                   <h3 className="font-bold text-lg">Error</h3>
-                  <p className="text-sm text-red-100">{exportError}</p>
+                  <p className="text-sm text-red-100 dark:text-red-200">{exportError}</p>
                 </div>
               </div>
             </div>
@@ -161,7 +164,7 @@ const handleExport = async (type) => {
           {/* Export Options */}
           <div className="space-y-6">
             <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">📊 Export Charts</h3>
+              <h3 className="text-xl font-bold text-[#2E1065] mb-4">📊 Export Charts</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ExportOption
                   icon={FileImage}
@@ -183,7 +186,7 @@ const handleExport = async (type) => {
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">📁 Export Data</h3>
+              <h3 className="text-xl font-bold text-[#2E1065] mb-4">📁 Export Data</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <ExportOption
                   icon={FileSpreadsheet}
@@ -214,11 +217,11 @@ const handleExport = async (type) => {
           </div>
 
           {/* Info Box */}
-          <div className="mt-6 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-700">
-            <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 flex items-center gap-2">
+          <div className="mt-6 bg-[#646463] rounded-2xl p-6 border-2 border-[#bc4e9c]">
+            <h4 className="font-bold mb-2 flex items-center gap-2 text-gray-800 dark:text-gray-200">
               💡 Export Tips
             </h4>
-            <ul className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+            <ul className="space-y-1 text-sm text-white">
               <li>• PNG format is best for presentations and web use</li>
               <li>• PDF is ideal for printing and sharing reports</li>
               <li>• CSV and Excel formats preserve all your data</li>
@@ -228,17 +231,11 @@ const handleExport = async (type) => {
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 dark:bg-slate-900 px-8 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="bg-[#dfdfa7e2] px-8 py-4 border-t border-gray-200 ">
           <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              File: <span className="font-semibold">{fileName || 'Untitled'}</span>
+            <p className="text-sm text-black">
+              File: <span className="font-semibold text-black">{fileName || 'Untitled'}</span>
             </p>
-            <button
-              onClick={onClose}
-              className="px-6 py-3 bg-white dark:bg-slate-700 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-slate-600 transition-all"
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
