@@ -1,122 +1,8 @@
-// import { Router } from "express";
-// import multer from "multer";
-// import { protect } from "../middleware/authMiddleware.js";
-// import { uploadExcel, myUploads, getUpload } from "../controllers/uploadController.js";
-
-// const router = Router();
-// const upload = multer({
-//   storage: multer.memoryStorage(),
-//   fileFilter: (req, file, cb) => {
-//     const ok = [
-//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-//       "application/vnd.ms-excel"
-//     ].includes(file.mimetype);
-//     cb(ok ? null : new Error("Only .xls or .xlsx allowed"), ok);
-//   }
-// });
-
-// router.post("/", protect, upload.single("file"), uploadExcel);
-// router.get("/", protect, myUploads);
-// router.get("/:id", protect, getUpload);
-
-// export default router;
-// import express,{ Router } from "express";
-// import multer from "multer";
-// import uploads from "../models/ExcelData.js"; 
-// import { protect } from "../middleware/authMiddleware.js";
-// import { uploadExcel, myUploads, getUpload } from "../controllers/uploadController.js";
-
-// const router =express.Router();
-
-// // Save files to "uploads" folder
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, "uploads/"); // make sure uploads/ folder exists
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, Date.now() + "-" + file.originalname); // unique filename
-//   }
-// });
-
-// const upload = multer({
-//   storage,
-//   fileFilter: (req, file, cb) => {
-//     const ok = [
-//       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-//       "application/vnd.ms-excel"
-//     ].includes(file.mimetype);
-//     cb(ok ? null : new Error("Only .xls or .xlsx allowed"), ok);
-//   }
-// });
-
-// router.post("/", protect, upload.single("file"), uploadExcel);
-// router.get("/", protect, myUploads);
-// router.get("/:id", protect, getUpload);
-
-// export default router;
-
-
-
-// // 🔹 Fetch upload history for logged-in user
-// router.get("/history", protect, getUploadHistory );async (req, res) => {
-//   try {
-//     const uploads = await Upload.find({ user: req.user._id })
-//       .sort({ createdAt: -1 });
-//     res.json(uploads);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Failed to fetch history" });
-//   }
-// });
-
-// import express from "express";
-// import multer from "multer";
-// import { protect } from "../middleware/authMiddleware.js";
-// import { uploadExcel, getUploadHistory } from "../controllers/uploadController.js";
-
-// const router = express.Router();
-
-// // Multer storage config
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => cb(null, "uploads/"),
-//   filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
-// });
-
-// const upload = multer({ storage });
-
-// // Upload file (saves to DB)
-// router.post("/", protect, upload.single("file"), async (req, res) => {
-//   try {
-//     const newUpload = new ExcelData({
-//       user: req.user._id,
-//       filename: req.file.originalname,
-//       storedName: req.file.filename,
-//       path: req.file.path,
-//       sheetName: "",
-//       headers: [],
-//       rowCount: 0,
-//       data: [],
-//     });
-
-//     const savedUpload = await newUpload.save();
-//     res.json(savedUpload);
-//   } catch (error) {
-//     console.error("File upload error:", error.message);
-//     res.status(500).json({ message: "File upload failed" });
-//   }
-// });
-
-// // Use controller endpoints
-// router.post("/upload", protect, uploadExcel);
-// router.get("/history", protect, getUploadHistory);
-
-// export default router;
-
-
 import express from "express";
 import upload from "../middleware/upload.js";
 import Upload from "../models/Upload.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { logOperation } from "../middleware/logOperation.js";
 import fs from "fs";
 import xlsx from "xlsx";
 
@@ -125,7 +11,7 @@ const router = express.Router();
 /* ============================================================
    ✅ Upload a file (POST /api/uploads)
 ============================================================ */
-router.post("/", protect, upload.single("file"), async (req, res) => {
+router.post("/", protect, upload.single("file"), logOperation("UPLOAD_FILE"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
