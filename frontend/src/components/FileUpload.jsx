@@ -90,7 +90,7 @@
 //   );
 // }
 import React, { useState, useContext } from 'react';
-import api from '../api'; // ✅ Import api instance
+import api from '../api';
 import { UploadContext } from '../context/UploadContext';
 
 export default function FileUpload() {
@@ -99,10 +99,18 @@ export default function FileUpload() {
   const [previewRows, setPreviewRows] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const onSelect = (e) => {
-    setFile(e.target.files[0]);
-    setError(''); // Clear previous errors
+    const selectedFile = e.target.files[0];
+    setFile(selectedFile);
+    setError('');
+    
+    console.log('📁 File selected:', {
+      name: selectedFile?.name,
+      size: selectedFile?.size,
+      type: selectedFile?.type
+    });
   };
 
   const handleUpload = async () => {
@@ -111,45 +119,111 @@ export default function FileUpload() {
       return;
     }
 
+    // Check file size (limit to 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError(`File too large! Maximum size is 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+      return;
+    }
+
     setUploading(true);
     setError('');
+    setUploadProgress('Preparing upload...');
 
     const formData = new FormData();
     formData.append('file', file);
 
+    console.log('🚀 Starting upload:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+
     try {
-      // ✅ Use api instance, NO Content-Type header (axios sets it automatically)
-      const res = await api.post('/uploads', formData);
+      setUploadProgress('Uploading to server...');
+      
+      // Add timeout to detect hanging requests
+      const uploadPromise = api.post('/uploads', formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(`Uploading... ${percentCompleted}%`);
+          console.log(`📊 Upload progress: ${percentCompleted}%`);
+        }
+      });
+
+      // 30 second timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Upload timeout - server not responding')), 30000)
+      );
+
+      const res = await Promise.race([uploadPromise, timeoutPromise]);
       
       console.log('✅ Upload successful:', res.data);
+      setUploadProgress('Processing file...');
 
       // Save metadata to context
       setCurrentUpload(res.data);
       setPreviewRows(res.data.previewRows || []);
-      setFile(null); // Clear file input
+      setFile(null);
+      setUploadProgress('');
       
       alert('Upload successful! ✅');
     } catch (err) {
-      console.error('❌ Upload error:', err);
-      const errorMsg = err.response?.data?.message || 'Upload failed. Please try again.';
+      console.error('❌ Upload error:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      });
+
+      let errorMsg = 'Upload failed. ';
+      
+      if (err.message.includes('timeout')) {
+        errorMsg += 'Server not responding. Please check if backend is running.';
+      } else if (err.response?.status === 413) {
+        errorMsg += 'File too large!';
+      } else if (err.response?.status === 401) {
+        errorMsg += 'Authentication failed. Please login again.';
+      } else if (err.response?.status === 500) {
+        errorMsg += 'Server error. Please try again or contact support.';
+      } else if (err.code === 'ERR_NETWORK') {
+        errorMsg += 'Network error. Please check your connection.';
+      } else {
+        errorMsg += err.response?.data?.message || err.message || 'Please try again.';
+      }
+
       setError(errorMsg);
       alert(errorMsg);
     } finally {
       setUploading(false);
+      setUploadProgress('');
     }
   };
 
   return (
-    <div className="card p-4 bg-white rounded-lg shadow-md">
-      <h3 className="text-xl font-bold mb-4 text-gray-800">Upload Excel File</h3>
+    <div className="card p-6 bg-white rounded-lg shadow-md">
+      <h3 className="text-2xl font-bold mb-4 text-gray-800">Upload Excel File</h3>
       
+      {/* Error Display */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {error}
+        <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded">
+          <p className="font-semibold">Error:</p>
+          <p>{error}</p>
         </div>
       )}
 
+      {/* Upload Progress */}
+      {uploadProgress && (
+        <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700 rounded">
+          <p className="font-semibold">{uploadProgress}</p>
+        </div>
+      )}
+
+      {/* File Input */}
       <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Excel File (.xlsx or .xls)
+        </label>
         <input
           type="file"
           accept=".xlsx,.xls"
@@ -157,15 +231,21 @@ export default function FileUpload() {
           disabled={uploading}
           className="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none hover:bg-gray-100 p-2"
         />
+        {file && (
+          <p className="mt-2 text-sm text-gray-600">
+            Selected: <span className="font-semibold">{file.name}</span> ({(file.size / 1024).toFixed(2)} KB)
+          </p>
+        )}
       </div>
 
+      {/* Upload Button */}
       <button
         onClick={handleUpload}
         disabled={uploading || !file}
         className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all ${
           uploading || !file
             ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+            : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:scale-105'
         }`}
       >
         {uploading ? (
@@ -174,13 +254,14 @@ export default function FileUpload() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
             </svg>
-            Uploading...
+            {uploadProgress || 'Uploading...'}
           </span>
         ) : (
           'Upload File'
         )}
       </button>
 
+      {/* Preview Table */}
       {previewRows.length > 0 && (
         <div className="mt-6">
           <h5 className="text-lg font-semibold mb-3 text-gray-800">
@@ -204,7 +285,7 @@ export default function FileUpload() {
                 {previewRows.map((r, i) => (
                   <tr key={i} className="hover:bg-gray-50">
                     {Object.keys(previewRows[0]).map((k) => (
-                      <td key={k} className="px-4 py-3 text-sm text-gray-700">
+                      <td key={k} className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
                         {String(r[k] ?? '')}
                       </td>
                     ))}
