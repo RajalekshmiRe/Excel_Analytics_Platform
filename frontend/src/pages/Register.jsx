@@ -54,7 +54,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../api"; // ✅ Use api instance instead of axios
 import toast, { Toaster } from "react-hot-toast";
 
 const Register = () => {
@@ -90,26 +90,27 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // await axios.post("http://localhost:5000/api/auth/register", {
-      await axios.post("api/auth/register",{
+      // ✅ Use api instance with correct endpoint
+      const response = await api.post("/auth/register", {
         name: formData.name,
         email: formData.email,
         password: formData.password,
       });
 
-      toast.success(`User registered successfully`);
+      console.log('✅ Registration successful:', response.data);
+      toast.success("User registered successfully! 🎉");
 
-        // Wait for toast to display before redirecting
+      // Wait for toast to display before redirecting
       setTimeout(() => {
         navigate("/login", {
           state: { message: "Registration successful! Please login." },
         });
-      }, 2000); 
-      
+      }, 2000);
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Registration failed. Please try again."
-      );
+      console.error('❌ Registration error:', err);
+      const errorMsg = err.response?.data?.message || "Registration failed. Please try again.";
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -117,9 +118,8 @@ const Register = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-cyan-50 to-gray-100 p-4">
-      
       <Toaster position="top-center" />
-      
+
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6/12 overflow-hidden border border-gray-100">
         <div className="p-5 px-12">
           <div className="text-center mb-12">
@@ -144,8 +144,8 @@ const Register = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-7">
-            <div className=" grid grid-cols-2 gap-3">
-              <div className="">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
                 <label className="block text-base font-semibold text-gray-900 mb-3">
                   Full Name
                 </label>
