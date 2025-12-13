@@ -1,12 +1,15 @@
+// ✅ CORRECT - Uses environment variable
 import mongoose from "mongoose";
 
-export default async function connectDB(uri) {
+export default async function connectDB() {
   try {
-    // Use the uri parameter (which comes from process.env.MONGO_URI)
-    await mongoose.connect(uri);
+    await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     console.log("✅ MongoDB connected");
   } catch (err) {
-    console.error("Mongo error:", err.message);
+    console.error("❌ MongoDB Connection Error:", err.message);
     process.exit(1);
   }
 }
