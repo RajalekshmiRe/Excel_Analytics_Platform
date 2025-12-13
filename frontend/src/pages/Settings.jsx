@@ -60,7 +60,8 @@ const Settings = ({ currentUser, theme, setTheme }) => {
         throw new Error("No authentication token found. Please login again.");
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/update-profile', {
+      // const response = await fetch('http://localhost:5000/api/auth/update-profile', {
+      const response = await fetch('api/authh/update-profile',{
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +123,8 @@ const Settings = ({ currentUser, theme, setTheme }) => {
         throw new Error("No authentication token found. Please login again.");
       }
 
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      // const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      const response = await fetch('api/auth/change-password',{
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
