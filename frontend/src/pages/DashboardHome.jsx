@@ -2118,7 +2118,7 @@ export default function DashboardHome({ currentUser, theme }) {
       const loadingToast = toast.loading("Uploading file...");
 
       // const response = await fetch("http://localhost:5000/api/uploads", 
-      const response = await api.get('/uploads',{
+      const response = await api.post('/uploads',{
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
