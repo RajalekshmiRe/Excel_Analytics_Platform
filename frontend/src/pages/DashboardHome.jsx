@@ -1874,6 +1874,7 @@ import toast, { Toaster } from "react-hot-toast";
 import ExportModal from "../components/ExportModal";
 import { adminAPI, userAPI } from "../api";
 import * as XLSX from "xlsx";
+import api from "../api"; // ✅ ADD THIS LINE - CRITICAL!
 
 export default function DashboardHome({ currentUser, theme }) {
   const [file, setFile] = useState(null);
