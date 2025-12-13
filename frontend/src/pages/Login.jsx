@@ -313,7 +313,7 @@
 
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
-import api from '../api'; // Import the api instance
+import api from '../api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
