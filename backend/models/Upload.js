@@ -1,23 +1,3 @@
-// import mongoose from "mongoose";
-
-// const uploadSchema = new mongoose.Schema(
-//   {
-//     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // uploader
-//     originalName: { type: String, required: true },  // original filename
-//     storedName: { type: String, required: true },    // filename saved on server
-//     path: { type: String, required: true },         // path to file
-//     sheetName: { type: String },                     // optional: Excel sheet name
-//     headers: { type: [String] },                    // column headers
-//     rowCount: { type: Number },                     // number of rows
-//     data: { type: Array },                           // parsed Excel data
-//   },
-//   { timestamps: true } // automatically adds createdAt and updatedAt
-// );
-
-// // Prevent redeclaration in hot-reload environments
-// const Upload = mongoose.models.Upload || mongoose.model("Upload", uploadSchema);
-
-// export default Upload;
 import mongoose from "mongoose";
 
 const uploadSchema = new mongoose.Schema(
