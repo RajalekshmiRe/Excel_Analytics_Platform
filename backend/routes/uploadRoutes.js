@@ -908,21 +908,37 @@ router.get('/history', protect, async (req, res) => {
 
     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
 
-    const formattedUploads = uploads.map(upload => ({
-      _id: upload._id,
-      id: upload._id,
-      filename: upload.originalName,
-      originalname: upload.originalName,
-      size: upload.size,
-      filesize: upload.size,
-      status: upload.status || 'Ready',
-      createdAt: upload.createdAt,
-      uploadedAt: upload.createdAt,
-      chartCount: upload.chartCount || 0,
-      reportCount: upload.reportCount || 0,
-      mimetype: upload.mimetype,
-      path: upload.path
-    }));
+    const formattedUploads = uploads.map(upload => {
+      // Get file size from database OR read from disk if 0
+      let fileSize = upload.size || 0;
+      
+      // If size is 0 and file exists, read from disk
+      if (fileSize === 0 && upload.path && fs.existsSync(upload.path)) {
+        try {
+          const stats = fs.statSync(upload.path);
+          fileSize = stats.size;
+        } catch (err) {
+          console.warn(`⚠️ Could not read file size for ${upload.path}`);
+        }
+      }
+
+      return {
+        _id: upload._id,
+        id: upload._id,
+        filename: upload.originalName,
+        originalname: upload.originalName,
+        originalName: upload.originalName,
+        size: fileSize,
+        filesize: fileSize,
+        status: upload.status || 'Ready',
+        createdAt: upload.createdAt,
+        uploadedAt: upload.createdAt,
+        chartCount: upload.chartCount || 0,
+        reportCount: upload.reportCount || 0,
+        mimetype: upload.mimetype,
+        path: upload.path
+      };
+    });
 
     res.json(formattedUploads);
   } catch (error) {
@@ -933,7 +949,42 @@ router.get('/history', protect, async (req, res) => {
     });
   }
 });
+/* ============================================================
+   ✅ GET /api/uploads/:id/download - Download file content
+============================================================ */
+router.get('/:id/download', protect, async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    
+    const upload = await Upload.findOne({
+      _id: req.params.id,
+      userId: userId
+    });
 
+    if (!upload) {
+      return res.status(404).json({ message: 'File not found' });
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(upload.path)) {
+      return res.status(404).json({ message: 'Physical file not found' });
+    }
+
+    // Read and send file
+    res.setHeader('Content-Type', upload.mimetype);
+    res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+    
+    const fileStream = fs.createReadStream(upload.path);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    res.status(500).json({
+      message: 'Error downloading file',
+      error: error.message
+    });
+  }
+});
 /* ============================================================
    ✅ GET /api/uploads/:id - Get single upload details
 ============================================================ */

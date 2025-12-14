@@ -1,34 +1,103 @@
-// import Upload from "../models/Upload.js";
-
-// // Saving uploaded file
-// const uploadExcel = async (req, res) => {
-//   const { userId, filename, sheetName, data } = req.body;
-//   try {
-//     const newUpload = await ExcelData.create({
-//       user: userId,
-//       filename,
-//       sheetName,
-//       data,
-//     });
-//     res.status(201).json(newUpload);
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
-// // Fetch user upload history
-// const getUploadHistory = async (req, res) => {
-//   try {
-//     const uploads = await ExcelData.find({ user: req.user._id }).sort({ createdAt: -1 });
-//     res.json(uploads);
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
-// export { uploadExcel, getUploadHistory };
 import Upload from '../models/Upload.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = 'uploads/';
+    // Create uploads directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /csv|xlsx|xls/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype) || 
+                     file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                     file.mimetype === 'application/vnd.ms-excel';
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only CSV, XLS, and XLSX files are allowed!'));
+    }
+  }
+}).single('file');
+
+// File upload handler
+export const uploadFile = async (req, res) => {
+  try {
+    // Use multer middleware
+    upload(req, res, async (err) => {
+      if (err instanceof multer.MulterError) {
+        console.error('Multer error:', err);
+        return res.status(400).json({ message: `Upload error: ${err.message}` });
+      } else if (err) {
+        console.error('Upload error:', err);
+        return res.status(400).json({ message: err.message });
+      }
+
+      // Check if file exists
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+
+      // Get user ID from authenticated request
+      const userId = req.user?._id || req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+      }
+
+      // Create upload record in database
+      const uploadRecord = new Upload({
+        userId: userId,
+        filename: req.file.originalname,
+        path: req.file.path,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        uploadedAt: new Date(),
+        status: 'processed'
+      });
+
+      await uploadRecord.save();
+
+      console.log('✅ File uploaded successfully:', {
+        id: uploadRecord._id,
+        filename: req.file.originalname,
+        size: req.file.size
+      });
+
+      res.status(200).json({
+        message: 'File uploaded successfully',
+        file: {
+          id: uploadRecord._id,
+          filename: req.file.originalname,
+          size: req.file.size,
+          uploadedAt: uploadRecord.uploadedAt
+        }
+      });
+    });
+  } catch (error) {
+    console.error('❌ Upload error:', error);
+    res.status(500).json({ message: error.message || 'Failed to upload file' });
+  }
+};
 // Existing chart data endpoint
 export const chartData = async (req, res) => { 
     try { 

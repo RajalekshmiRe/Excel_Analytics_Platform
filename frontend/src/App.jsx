@@ -1,29 +1,3 @@
-// import React from "react";
-// import { Routes, Route } from "react-router-dom";
-// import DashboardHome from "./pages/DashboardHome";
-// import Login from "./pages/Login";
-// import Register from "./pages/Register";
-// import ProtectedRoute from "./ProtectedRoute"; // ✅ Import the ProtectedRoute component
-// function App() {
-//   return (
-//       <Routes>
-//         {/* Public routes */}
-//         <Route path="/login" element={<Login />} />
-//         <Route path="/register" element={<Register />} />
-
-//         {/* Protected dashboard route */}
-//         <Route element={<ProtectedRoute />}>
-//           <Route path="/dashboard" element={<DashboardHome />} />
-//         </Route>
-
-//         {/* Redirect all unknown routes to login */}
-//         <Route path="*" element={<Login />} />
-//       </Routes>
-//   );
-// }
-// export default App;
-
-
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
@@ -33,7 +7,9 @@ import DashboardLayout from './layout/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import UploadHistory from './pages/UploadHistory';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics';  // ← Make sure this exists
 import RequestAdminAccess from './pages/RequestAdminAccess';
+import AnalysisView from './pages/AnalysisView';
 
 import AdminLayout from './layout/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -87,18 +63,21 @@ function App() {
         <Route path="/register" element={<Register />} />
         
         {/* User Dashboard Routes */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<DashboardHome />} />
-          <Route path="history" element={<UploadHistory />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
+       <Route 
+  path="/dashboard" 
+  element={
+    <ProtectedRoute>
+      <DashboardLayout />
+    </ProtectedRoute>
+  }
+>
+  <Route index element={<DashboardHome />} />
+  <Route path="analysis/:fileId" element={<AnalysisView />} />
+  <Route path="history" element={<UploadHistory />} />
+  <Route path="analytics" element={<Analytics />} />  {/* ← ADD THIS */}
+  <Route path="request-admin" element={<RequestAdminAccess />} />  {/* ← ADD THIS */}
+  <Route path="settings" element={<Settings />} />
+</Route>
 
         {/* User Request Admin Access */}
         <Route 

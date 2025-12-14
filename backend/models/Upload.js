@@ -19,10 +19,11 @@ const uploadSchema = new mongoose.Schema(
       type: String,
       required: true
     },
-    size: {
-      type: Number,
-      required: true
-    },
+   size: {
+  type: Number,
+  required: true,
+  default: 0
+},
     mimetype: {
       type: String,
       required: true
