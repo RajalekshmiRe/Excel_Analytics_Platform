@@ -556,6 +556,211 @@
 
 
 
+// import express from 'express';
+// import multer from 'multer';
+// import path from 'path';
+// import fs from 'fs';
+// import { protect } from '../middleware/authMiddleware.js';
+// import Upload from '../models/Upload.js';
+// import { logOperation } from '../middleware/logOperation.js';
+
+// const router = express.Router();
+
+// // Configure multer for file uploads
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadDir = 'uploads/';
+//     if (!fs.existsSync(uploadDir)) {
+//       fs.mkdirSync(uploadDir, { recursive: true });
+//     }
+//     cb(null, uploadDir);
+//   },
+//   filename: (req, file, cb) => {
+//     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+//   }
+// });
+
+// const upload = multer({
+//   storage: storage,
+//   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+//   fileFilter: (req, file, cb) => {
+//     const allowedTypes = /xlsx|xls|csv/;
+//     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+//     const mimetype = allowedTypes.test(file.mimetype);
+
+//     if (mimetype && extname) {
+//       return cb(null, true);
+//     } else {
+//       cb(new Error('Only Excel and CSV files are allowed!'));
+//     }
+//   }
+// });
+
+// /* ============================================================
+//    ✅ POST /api/uploads - Upload a file
+// ============================================================ */
+// router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({ message: 'No file uploaded' });
+//     }
+
+//     // CRITICAL FIX: Use req.user._id (set by auth middleware)
+//     const userId = req.user._id || req.user.id;
+
+//     const newUpload = new Upload({
+//       userId: userId,
+//       filename: req.file.filename,
+//       originalName: req.file.originalname,
+//       path: req.file.path,
+//       size: req.file.size,
+//       mimetype: req.file.mimetype,
+//       status: 'processed',
+//       chartCount: 0,
+//       reportCount: 0
+//     });
+
+//     await newUpload.save();
+
+//     console.log('✅ File uploaded successfully:', {
+//       id: newUpload._id,
+//       filename: newUpload.originalName,
+//       userId: userId
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'File uploaded successfully',
+//       file: newUpload
+//     });
+//   } catch (error) {
+//     console.error('❌ Upload error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'File upload failed',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads/history - Get user's upload history
+//    CRITICAL FIX: Use req.user._id not req.user.id
+// ============================================================ */
+// router.get('/history', protect, async (req, res) => {
+//   try {
+//     // CRITICAL FIX: Use _id from auth middleware
+//     const userId = req.user._id || req.user.id;
+    
+//     console.log(`📂 Fetching upload history for user: ${userId}`);
+//     console.log(`👤 User object:`, { id: req.user.id, _id: req.user._id, role: req.user.role });
+
+//     // Fetch all uploads for the user, sorted by most recent
+//     const uploads = await Upload.find({ userId })
+//       .sort({ createdAt: -1 })
+//       .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+
+//     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
+
+//     // Transform the data to match frontend expectations
+//     const formattedUploads = uploads.map(upload => ({
+//       _id: upload._id,
+//       id: upload._id,
+//       filename: upload.originalName, // Use originalName for display
+//       originalname: upload.originalName,
+//       size: upload.size,
+//       filesize: upload.size,
+//       status: upload.status || 'Ready',
+//       createdAt: upload.createdAt,
+//       uploadedAt: upload.createdAt,
+//       chartCount: upload.chartCount || 0,
+//       reportCount: upload.reportCount || 0,
+//       mimetype: upload.mimetype,
+//       path: upload.path
+//     }));
+
+//     res.json(formattedUploads);
+//   } catch (error) {
+//     console.error('❌ Error fetching upload history:', error);
+//     res.status(500).json({
+//       message: 'Failed to load upload history',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads/:id - Get single upload details
+// ============================================================ */
+// router.get('/:id', protect, async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     const upload = await Upload.findOne({
+//       _id: req.params.id,
+//       userId: userId
+//     });
+
+//     if (!upload) {
+//       return res.status(404).json({ message: 'File not found' });
+//     }
+
+//     res.json(upload);
+//   } catch (error) {
+//     console.error('Error fetching upload:', error);
+//     res.status(500).json({
+//       message: 'Error fetching file details',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ DELETE /api/uploads/:id - Delete a file
+// ============================================================ */
+// router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     const upload = await Upload.findOne({
+//       _id: req.params.id,
+//       userId: userId
+//     });
+
+//     if (!upload) {
+//       return res.status(404).json({ message: 'File not found' });
+//     }
+
+//     // Delete physical file
+//     if (fs.existsSync(upload.path)) {
+//       fs.unlinkSync(upload.path);
+//     }
+
+//     // Delete database record
+//     await Upload.findByIdAndDelete(req.params.id);
+
+//     console.log('✅ File deleted successfully:', upload.filename);
+
+//     res.json({
+//       success: true,
+//       message: 'File deleted successfully'
+//     });
+//   } catch (error) {
+//     console.error('❌ Delete error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to delete file',
+//       error: error.message
+//     });
+//   }
+// });
+
+// export default router;
+
+
+
+
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -606,7 +811,7 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // CRITICAL FIX: Use req.user._id (set by auth middleware)
+    // Use req.user._id from auth middleware
     const userId = req.user._id || req.user.id;
 
     const newUpload = new Upload({
@@ -645,29 +850,68 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
 });
 
 /* ============================================================
-   ✅ GET /api/uploads/history - Get user's upload history
-   CRITICAL FIX: Use req.user._id not req.user.id
+   ✅ GET /api/uploads - Get ALL user uploads
+   This endpoint fixes the 404 error
 ============================================================ */
-router.get('/history', protect, async (req, res) => {
+router.get('/', protect, async (req, res) => {
   try {
-    // CRITICAL FIX: Use _id from auth middleware
     const userId = req.user._id || req.user.id;
     
-    console.log(`📂 Fetching upload history for user: ${userId}`);
-    console.log(`👤 User object:`, { id: req.user.id, _id: req.user._id, role: req.user.role });
+    console.log(`📂 Fetching ALL uploads for user: ${userId}`);
 
-    // Fetch all uploads for the user, sorted by most recent
     const uploads = await Upload.find({ userId })
       .sort({ createdAt: -1 })
       .select('filename originalName size mimetype status createdAt chartCount reportCount path');
 
     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
 
-    // Transform the data to match frontend expectations
+    // Format for frontend compatibility
     const formattedUploads = uploads.map(upload => ({
       _id: upload._id,
       id: upload._id,
-      filename: upload.originalName, // Use originalName for display
+      filename: upload.originalName,
+      originalname: upload.originalName,
+      originalName: upload.originalName,
+      size: upload.size,
+      filesize: upload.size,
+      status: upload.status || 'Ready',
+      createdAt: upload.createdAt,
+      uploadedAt: upload.createdAt,
+      chartCount: upload.chartCount || 0,
+      reportCount: upload.reportCount || 0,
+      mimetype: upload.mimetype,
+      path: upload.path
+    }));
+
+    res.json({ uploads: formattedUploads });
+  } catch (error) {
+    console.error('❌ Error fetching uploads:', error);
+    res.status(500).json({
+      message: 'Failed to load uploads',
+      error: error.message
+    });
+  }
+});
+
+/* ============================================================
+   ✅ GET /api/uploads/history - Get user's upload history
+============================================================ */
+router.get('/history', protect, async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    
+    console.log(`📂 Fetching upload history for user: ${userId}`);
+
+    const uploads = await Upload.find({ userId })
+      .sort({ createdAt: -1 })
+      .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+
+    console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
+
+    const formattedUploads = uploads.map(upload => ({
+      _id: upload._id,
+      id: upload._id,
+      filename: upload.originalName,
       originalname: upload.originalName,
       size: upload.size,
       filesize: upload.size,
