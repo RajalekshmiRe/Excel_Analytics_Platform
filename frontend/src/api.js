@@ -285,14 +285,302 @@
 
 
 
+// import axios from 'axios';
+
+// // HARDCODED Production URL - This ensures it works on Vercel
+// const API_URL = import.meta.env.VITE_API_URL;
+// ;
+
+// // Log the API URL being used
+// console.log('🔧 API URL:', API_URL);
+
+// const api = axios.create({
+//   baseURL: API_URL,
+//   headers: {
+//     'Content-Type': 'application/json',
+//   },
+//   timeout: 30000, // 30 second timeout for slow Render backend
+// });
+
+// // Add token to requests automatically
+// api.interceptors.request.use(
+//   (config) => {
+//     const token = localStorage.getItem('token');
+//     if (token) {
+//       config.headers.Authorization = `Bearer ${token}`;
+//       console.log('🔑 Adding token to request:', config.url);
+//     } else {
+//       console.warn('⚠️ No token found for request:', config.url);
+//     }
+//     console.log('📡 Making request to:', `${config.baseURL}${config.url}`);
+//     return config;
+//   },
+//   (error) => {
+//     console.error('❌ Request error:', error);
+//     return Promise.reject(error);
+//   }
+// );
+
+// // Handle response errors
+// api.interceptors.response.use(
+//   (response) => {
+//     console.log('✅ Response received:', response.config.url, response.status);
+//     return response;
+//   },
+//   (error) => {
+//     console.error('❌ Response error:', {
+//       status: error.response?.status,
+//       url: error.config?.url,
+//       message: error.message,
+//       data: error.response?.data
+//     });
+    
+//     if (error.response?.status === 401) {
+//       console.error('🚫 Authentication failed - clearing tokens and redirecting');
+//       localStorage.removeItem('token');
+//       localStorage.removeItem('user');
+//       localStorage.removeItem('superAdminToken');
+//       localStorage.removeItem('adminToken');
+      
+//       // Only redirect if not already on login page
+//       if (!window.location.pathname.includes('/login')) {
+//         window.location.href = '/login';
+//       }
+//     }
+//     // For 403 errors, handle gracefully (don't logout)
+//     else if (error.response?.status === 403) {
+//       console.warn('⚠️ Forbidden: Access denied to resource');
+//     } 
+//     // For file-related or 404 errors, just notify
+//     else if (error.response?.status === 404) {
+//       console.warn('📁 Resource not found:', error.config?.url);
+//     } 
+//     // For network errors
+//     else if (error.message === 'Network Error') {
+//       console.error('🌐 Network Error - Backend might be down or CORS issue');
+//     }
+//     // For any other errors
+//     else {
+//       console.warn('⚠️ Unexpected error:', error.response?.status);
+//     }
+//     return Promise.reject(error);
+//   }
+// );
+
+// // User API Calls 
+// export const guestAPI = {
+//   contact: (data) => api.post('/contact', data),
+// };
+
+// // User API Calls 
+// export const userAPI = {
+//   requestAdminAccess: (data) => api.post('/request', data),
+//   getUserRequest: (userId) => api.get(`/request/${userId}`),
+//   updateChart: (id) => api.patch(`/analysis/update-chart/${id}`),
+//   updateReport: (id) => api.patch(`/analysis/update-report/${id}`),
+// };
+
+// // Admin API calls
+// export const adminAPI = {
+//   getDashboardStats: () => api.get('/admin/stats'),
+//   getStats: () => api.get('/admin/stats'),
+//   getDashboardCharts: () => api.get('/admin/dashboard/charts'),
+//   getSettings: () => api.get('/admin/settings'),
+//   updateSettings: (data) => api.put('/admin/settings', data),
+  
+//   getAllUsers: (page = 1, limit = 10, search = '') => 
+//     api.get(`/admin/users?page=${page}&limit=${limit}&search=${search}`),
+//   getUserById: (id) => api.get(`/admin/users/${id}`),
+//   updateUser: (id, data) => api.put(`/admin/users/${id}`, data),
+//   deleteUser: (id) => api.delete(`/admin/users/${id}`),
+//   toggleUserStatus: (id) => api.patch(`/admin/users/${id}/toggle-status`),
+  
+//   getAllFiles: (page = 1, limit = 10, search = '') => 
+//     api.get(`/admin/files?page=${page}&limit=${limit}&search=${search}`),
+//   getFileById: (id) => api.get(`/admin/files/${id}`),
+//   deleteFile: (id) => api.delete(`/admin/files/${id}`),
+//   quarantineFile: (id, reason = '') => api.post(`/admin/files/${id}/quarantine`, { reason }),
+//   releaseFile: (id) => api.post(`/admin/files/${id}/release`),
+  
+//   getRecentActivity: (limit = 10) => api.get(`/admin/activity?limit=${limit}`),
+  
+//   getReports: (page = 1, limit = 10) => api.get(`/admin/reports?page=${page}&limit=${limit}`),
+//   getReportById: (id) => api.get(`/admin/reports/${id}`),
+//   createReport: (data) => api.post('/admin/reports', data),
+//   updateReport: (id, data) => api.put(`/admin/reports/${id}`, data),
+//   deleteReport: (id) => api.delete(`/admin/reports/${id}`),
+//   downloadReport: (id, format = 'pdf') => api.get(`/admin/reports/${id}/download?format=${format}`),
+  
+//   getUploads: (page = 1, limit = 10) => api.get(`/admin/uploads?page=${page}&limit=${limit}`),
+//   deleteUpload: (id) => api.delete(`/admin/uploads/${id}`),
+  
+//   getAnalytics: () => api.get('/admin/analytics'),
+//   resetUserPassword: (data) => api.post('/admin/user-password-reset', data),
+//   getUserStats: (userId) => api.get(`/analysis/stats/${userId}`),
+//   downloadFile: (fileId) => api.get(`/files/download/${fileId}`),
+// };
+
+// // Super Admin API calls
+// export const superAdminAPI = {
+//   getStats: () => api.get('/superadmin/stats'),
+//   getDashboardStats: () => api.get('/superadmin/stats'),
+//   getSuperAdminStats: () => api.get('/superadmin/stats'),
+//   getRecentActivity: (limit = 10) => api.get(`/superadmin/activity?limit=${limit}`),
+//   getSystemHealth: () => api.get('/superadmin/system-health'),
+  
+//   getAuditLogs: (type = 'all', page = 1, limit = 20, search = '') => 
+//     api.get(`/superadmin/audit?type=${type}&page=${page}&limit=${limit}&search=${search}`),
+//   getAuditLogById: (id) => api.get(`/superadmin/audit/${id}`),
+//   exportAuditLogs: (format = 'csv', type = 'all') => 
+//     api.get(`/superadmin/audit/export?format=${format}&type=${type}`, { responseType: 'blob' }),
+  
+//   getAdminRequests: (status = 'pending', page = 1, limit = 10) => 
+//     api.get(`/superadmin/requests?status=${status}&page=${page}&limit=${limit}`),
+//   getAdminRequestById: (id) => api.get(`/superadmin/requests/${id}`),
+//   approveAdminRequest: (id, reason = '') => 
+//     api.post(`/superadmin/requests/${id}/approve`, { reason }),
+//   rejectAdminRequest: (id, reason = '') => 
+//     api.post(`/superadmin/requests/${id}/reject`, { reason }),
+  
+//   getAllAdmins: (page = 1, limit = 10, search = '', status = 'all') => 
+//     api.get(`/superadmin/admins?page=${page}&limit=${limit}&search=${search}&status=${status}`),
+//   getAdminById: (id) => api.get(`/superadmin/admins/${id}`),
+//   updateAdmin: (id, data) => api.put(`/superadmin/admins/${id}`, data),
+//   revokeAdminAccess: (id, reason = '') => 
+//     api.delete(`/superadmin/admins/${id}`, { data: { reason } }),
+//   revokeAdmin: (id, reason = '') => 
+//     api.delete(`/superadmin/admins/${id}`, { data: { reason } }),
+//   suspendAdmin: (id, reason = '', duration = null) => 
+//     api.post(`/superadmin/admins/${id}/suspend`, { reason, duration }),
+//   unsuspendAdmin: (id) => api.post(`/superadmin/admins/${id}/unsuspend`),
+//   toggleAdminStatus: (id, status) => 
+//     api.patch(`/superadmin/admins/${id}/toggle-status`, { status }),
+//   resetAdminPassword: (id) => api.post(`/superadmin/admins/${id}/reset-password`),
+  
+//   getAllUsers: (page = 1, limit = 10, search = '', role = 'all') => 
+//     api.get(`/superadmin/users?page=${page}&limit=${limit}&search=${search}&role=${role}`),
+//   getUserById: (id) => api.get(`/superadmin/users/${id}`),
+//   updateUser: (id, data) => api.put(`/superadmin/users/${id}`, data),
+//   deleteUser: (id, reason = '') => 
+//     api.delete(`/superadmin/users/${id}`, { data: { reason } }),
+//   deactivateUser: (id, reason = '') => 
+//     api.post(`/superadmin/users/${id}/deactivate`, { reason }),
+//   reactivateUser: (id) => api.post(`/superadmin/users/${id}/reactivate`),
+//   suspendUser: (id, reason = '', duration = null) => 
+//     api.post(`/superadmin/users/${id}/suspend`, { reason, duration }),
+//   unsuspendUser: (id) => api.post(`/superadmin/users/${id}/unsuspend`),
+//   resetUserPassword: (id) => api.post(`/superadmin/users/${id}/reset-password`),
+//   exportUsers: (format = 'csv') => 
+//     api.get(`/superadmin/users/export?format=${format}`, { responseType: 'blob' }),
+  
+//   getAllFiles: (page = 1, limit = 10, search = '', userId = null, status = 'all') => {
+//     let url = `/superadmin/files?page=${page}&limit=${limit}&search=${search}&status=${status}`;
+//     if (userId) url += `&userId=${userId}`;
+//     return api.get(url);
+//   },
+//   getFileById: (id) => api.get(`/superadmin/files/${id}`),
+//   deleteFile: (id, reason = '') => 
+//     api.delete(`/superadmin/files/${id}`, { data: { reason } }),
+//   quarantineFile: (id, reason = '') => 
+//     api.post(`/superadmin/files/${id}/quarantine`, { reason }),
+//   releaseFile: (id) => api.post(`/superadmin/files/${id}/release`),
+//   scanFile: (id) => api.post(`/superadmin/files/${id}/scan`),
+//   downloadFile: (id) => api.get(`/superadmin/files/${id}/download`),
+  
+//   getSettings: () => api.get('/superadmin/settings'),
+//   updateSettings: (data) => api.put('/superadmin/settings', data),
+//   resetSettings: () => api.post('/superadmin/settings/reset'),
+//   getEmailSettings: () => api.get('/superadmin/settings/email'),
+//   updateEmailSettings: (data) => api.put('/superadmin/settings/email', data),
+//   getSecuritySettings: () => api.get('/superadmin/settings/security'),
+//   updateSecuritySettings: (data) => api.put('/superadmin/settings/security', data),
+  
+//   getReports: (page = 1, limit = 10, type = 'all') => 
+//     api.get(`/superadmin/reports?page=${page}&limit=${limit}&type=${type}`),
+//   getReportById: (id) => api.get(`/superadmin/reports/${id}`),
+//   generateReport: (reportType, filters = {}) => 
+//     api.post('/superadmin/reports/generate', { reportType, filters }),
+//   downloadReport: (id, format = 'pdf') => 
+//     api.get(`/superadmin/reports/${id}/download?format=${format}`, { responseType: 'blob' }),
+//   deleteReport: (id) => api.delete(`/superadmin/reports/${id}`),
+  
+//   getNotifications: (page = 1, limit = 20, read = 'all') => 
+//     api.get(`/superadmin/notifications?page=${page}&limit=${limit}&read=${read}`),
+//   markNotificationAsRead: (id) => 
+//     api.put(`/superadmin/notifications/${id}/read`),
+//   markAllNotificationsAsRead: () => 
+//     api.put('/superadmin/notifications/mark-all-read'),
+//   deleteNotification: (id) => api.delete(`/superadmin/notifications/${id}`),
+  
+//   createBackup: (type = 'full') => 
+//     api.post('/superadmin/maintenance/backup', { type }),
+//   getBackups: (page = 1, limit = 10) => 
+//     api.get(`/superadmin/maintenance/backups?page=${page}&limit=${limit}`),
+//   restoreBackup: (backupId) => 
+//     api.post('/superadmin/maintenance/restore', { backupId }),
+//   deleteBackup: (backupId) => 
+//     api.delete(`/superadmin/maintenance/backups/${backupId}`),
+//   downloadBackup: (backupId) => 
+//     api.get(`/superadmin/maintenance/backups/${backupId}/download`, { responseType: 'blob' }),
+  
+//   getSystemLogs: (page = 1, limit = 20, level = 'all') => 
+//     api.get(`/superadmin/logs?page=${page}&limit=${limit}&level=${level}`),
+//   getErrorLogs: (page = 1, limit = 10) => 
+//     api.get(`/superadmin/logs/errors?page=${page}&limit=${limit}`),
+//   getAccessLogs: (page = 1, limit = 20) => 
+//     api.get(`/superadmin/logs/access?page=${page}&limit=${limit}`),
+  
+//   getAnalytics: (startDate, endDate) => 
+//     api.get(`/superadmin/analytics?startDate=${startDate}&endDate=${endDate}`),
+//   getUserAnalytics: (startDate, endDate) => 
+//     api.get(`/superadmin/analytics/users?startDate=${startDate}&endDate=${endDate}`),
+//   getFileAnalytics: (startDate, endDate) => 
+//     api.get(`/superadmin/analytics/files?startDate=${startDate}&endDate=${endDate}`),
+
+//   getAllContacts: () => api.get("/contacts"),
+// };
+
+// // User API Calls 
+// export const authAPI = {
+//   logout: (id) => api.patch(`/auth/logout/${id}`),
+// };
+
+// export default api;
+
+
+
+
 import axios from 'axios';
 
-// HARDCODED Production URL - This ensures it works on Vercel
-const API_URL = import.meta.env.VITE_API_URL;
-;
+// ============================================================
+// 🔧 SMART ENVIRONMENT DETECTION
+// ============================================================
+const getApiUrl = () => {
+  // 1. Check if we're in production (Vercel)
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    console.log('🌍 Production mode detected - Using Render backend');
+    return 'https://excel-analytics-backend-buq3.onrender.com/api';
+  }
+  
+  // 2. Check environment variable (for local development)
+  if (import.meta.env.VITE_API_URL) {
+    console.log('🔧 Using VITE_API_URL:', import.meta.env.VITE_API_URL);
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // 3. Default to production (safest fallback)
+  console.log('⚠️ No env variable - Defaulting to production backend');
+  return 'https://excel-analytics-backend-buq3.onrender.com/api';
+};
 
-// Log the API URL being used
-console.log('🔧 API URL:', API_URL);
+const API_URL = getApiUrl();
+
+// Log the API URL being used (helpful for debugging)
+console.log('📡 API Configuration:', {
+  url: API_URL,
+  environment: import.meta.env.MODE,
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+});
 
 const api = axios.create({
   baseURL: API_URL,
@@ -302,41 +590,50 @@ const api = axios.create({
   timeout: 30000, // 30 second timeout for slow Render backend
 });
 
-// Add token to requests automatically
+// ============================================================
+// 🔑 REQUEST INTERCEPTOR - Add Authentication Token
+// ============================================================
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('🔑 Adding token to request:', config.url);
+      console.log(`🔑 Request: ${config.method?.toUpperCase()} ${config.url}`);
     } else {
-      console.warn('⚠️ No token found for request:', config.url);
+      console.warn(`⚠️ No token for: ${config.method?.toUpperCase()} ${config.url}`);
     }
-    console.log('📡 Making request to:', `${config.baseURL}${config.url}`);
+    
     return config;
   },
   (error) => {
-    console.error('❌ Request error:', error);
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Handle response errors
+// ============================================================
+// 📥 RESPONSE INTERCEPTOR - Handle Errors & Auth
+// ============================================================
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Response received:', response.config.url, response.status);
+    console.log(`✅ Response: ${response.config.url} (${response.status})`);
     return response;
   },
   (error) => {
-    console.error('❌ Response error:', {
-      status: error.response?.status,
-      url: error.config?.url,
+    const status = error.response?.status;
+    const url = error.config?.url;
+    
+    console.error('❌ API Error:', {
+      status,
+      url,
       message: error.message,
       data: error.response?.data
     });
     
-    if (error.response?.status === 401) {
-      console.error('🚫 Authentication failed - clearing tokens and redirecting');
+    // Handle different error types
+    if (status === 401) {
+      console.error('🚫 Unauthorized - Clearing tokens');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('superAdminToken');
@@ -346,33 +643,30 @@ api.interceptors.response.use(
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
+    } else if (status === 403) {
+      console.warn('⚠️ Forbidden - Access denied');
+    } else if (status === 404) {
+      console.warn(`📁 Not Found: ${url}`);
+    } else if (error.code === 'ECONNABORTED') {
+      console.error('⏱️ Request Timeout - Backend might be cold starting');
+    } else if (error.message === 'Network Error') {
+      console.error('🌐 Network Error - Check backend status');
     }
-    // For 403 errors, handle gracefully (don't logout)
-    else if (error.response?.status === 403) {
-      console.warn('⚠️ Forbidden: Access denied to resource');
-    } 
-    // For file-related or 404 errors, just notify
-    else if (error.response?.status === 404) {
-      console.warn('📁 Resource not found:', error.config?.url);
-    } 
-    // For network errors
-    else if (error.message === 'Network Error') {
-      console.error('🌐 Network Error - Backend might be down or CORS issue');
-    }
-    // For any other errors
-    else {
-      console.warn('⚠️ Unexpected error:', error.response?.status);
-    }
+    
     return Promise.reject(error);
   }
 );
 
-// User API Calls 
+// ============================================================
+// 📱 API ENDPOINTS
+// ============================================================
+
+// Guest API
 export const guestAPI = {
   contact: (data) => api.post('/contact', data),
 };
 
-// User API Calls 
+// User API
 export const userAPI = {
   requestAdminAccess: (data) => api.post('/request', data),
   getUserRequest: (userId) => api.get(`/request/${userId}`),
@@ -380,7 +674,7 @@ export const userAPI = {
   updateReport: (id) => api.patch(`/analysis/update-report/${id}`),
 };
 
-// Admin API calls
+// Admin API
 export const adminAPI = {
   getDashboardStats: () => api.get('/admin/stats'),
   getStats: () => api.get('/admin/stats'),
@@ -420,7 +714,7 @@ export const adminAPI = {
   downloadFile: (fileId) => api.get(`/files/download/${fileId}`),
 };
 
-// Super Admin API calls
+// Super Admin API
 export const superAdminAPI = {
   getStats: () => api.get('/superadmin/stats'),
   getDashboardStats: () => api.get('/superadmin/stats'),
@@ -537,10 +831,10 @@ export const superAdminAPI = {
   getFileAnalytics: (startDate, endDate) => 
     api.get(`/superadmin/analytics/files?startDate=${startDate}&endDate=${endDate}`),
 
-  getAllContacts: () => api.get("/contacts"),
+  getAllContacts: () => api.get('/contacts'),
 };
 
-// User API Calls 
+// Auth API
 export const authAPI = {
   logout: (id) => api.patch(`/auth/logout/${id}`),
 };
