@@ -288,7 +288,8 @@
 import axios from 'axios';
 
 // HARDCODED Production URL - This ensures it works on Vercel
-const API_URL = 'https://excel-analytics-backend-buq3.onrender.com/api';
+const API_URL = import.meta.env.VITE_API_URL;
+;
 
 // Log the API URL being used
 console.log('🔧 API URL:', API_URL);
