@@ -123,27 +123,39 @@ const AnalysisView = () => {
   };
 
   const handleDownload = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await api.get(`/uploads/${fileId}/download`, {
+  try {
+    const token = localStorage.getItem('token');
+
+    const response = await api.get(
+      `/uploads/${fileId}/download`,
+      {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
-      });
-      
-      const url = window.URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', fileInfo.originalName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('File downloaded!');
-    } catch (err) {
-      toast.error('Download failed');
+      }
+    );
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileInfo?.originalName || 'file');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('File downloaded!');
+  } catch (err) {
+    // ✅ IMPORTANT FIX
+    if (err.response?.status === 404) {
+      console.warn('⚠️ File not found on server (Render cleanup)');
+      toast.info('File no longer available. Please re-upload if needed.');
+      return; // 👈 do NOT break AnalysisView
     }
-  };
+
+    console.error('Download error:', err);
+    toast.error('Download failed');
+  }
+};
 
   const getColumnStats = (columnName) => {
     if (!fileData) return null;
