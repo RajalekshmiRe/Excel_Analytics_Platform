@@ -41,12 +41,37 @@ const AnalysisView = () => {
       console.log('✅ Metadata received:', metaResponse.data);
       setFileInfo(metaResponse.data);
       
-      // Step 2: Download and parse file
-      console.log('📥 Downloading file...');
-      const downloadResponse = await api.get(`/uploads/${fileId}/download`, {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
-      });
+   // Step 2: Try downloading file (may not exist on Render)
+try {
+  console.log('📥 Downloading file...');
+  const downloadResponse = await api.get(
+    `/uploads/${fileId}/download`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'blob'
+    }
+  );
+
+  const blob = downloadResponse.data;
+  const fileExtension = metaResponse.data.originalName
+    .split('.')
+    .pop()
+    .toLowerCase();
+
+  if (fileExtension === 'csv') {
+    await parseCSV(blob);
+  } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+    await parseExcel(blob);
+  }
+} catch (downloadErr) {
+  // ✅ THIS IS THE KEY FIX
+  if (downloadErr.response?.status === 404) {
+    console.warn('⚠️ File missing on server, loading metadata only');
+    toast.info('File content unavailable. You can still view details.');
+  } else {
+    throw downloadErr;
+  }
+}
 
       console.log('✅ File downloaded, size:', downloadResponse.data.size);
 
