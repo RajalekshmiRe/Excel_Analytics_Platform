@@ -294,3 +294,31 @@ function calculateTrend(current, previous) {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
 }
+
+
+
+
+// ✅ SAFE file download handler (Render / Vercel compatible)
+export const downloadFile = async (req, res) => {
+  try {
+    const upload = await Upload.findById(req.params.id);
+
+    if (!upload) {
+      return res.status(404).json({ message: "Upload record not found" });
+    }
+
+    const filePath = path.resolve(upload.path);
+
+    // 🔴 IMPORTANT FIX: Handle missing files gracefully
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        message: "File is no longer available on the server"
+      });
+    }
+
+    res.download(filePath, upload.filename);
+  } catch (err) {
+    console.error("Download error:", err);
+    res.status(500).json({ message: "Failed to download file" });
+  }
+};
