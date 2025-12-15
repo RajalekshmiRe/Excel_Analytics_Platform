@@ -371,7 +371,6 @@ npm run dev
 
 ⭐ *If you like this project, don’t forget to star the repository!*
 
-📧 your-email@example.com  
 🔗 [GitHub Profile](https://github.com/RajalekshmiRe)
 
 ---
