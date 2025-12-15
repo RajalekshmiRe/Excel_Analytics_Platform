@@ -70,7 +70,7 @@ Excel_Analytics_Platform/
 
 ### 🔸 Clone the repository
 ```bash
-git clone https://github.com/RajalekshmiRe/Excel-Analytics-Platform.git
+git clone https://github.com/RajalekshmiRe/Excel_Analytics_Platform.git
 cd Excel-Analytics-Platform
 ```
 
