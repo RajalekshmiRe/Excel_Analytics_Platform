@@ -272,38 +272,42 @@ export const chartData = async (req, res) => {
 export const getAnalytics = async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { range = '7days' } = req.query;
+    const { timeRange = 'all' } = req.query;
 
-    console.log(`📊 Fetching analytics for user: ${userId}, range: ${range}`);
+    console.log(`📊 Fetching analytics for user: ${userId}, range: ${timeRange}`);
 
-    // Calculate date range
+    // ✅ FIXED: Calculate date range correctly
     const now = new Date();
-    let startDate = new Date();
+    let startDate;
     
-    switch(range) {
+    switch(timeRange) {
       case '7days':
-        startDate.setDate(now.getDate() - 7);
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         break;
       case '30days':
-        startDate.setDate(now.getDate() - 30);
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         break;
       case '90days':
-        startDate.setDate(now.getDate() - 90);
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
         break;
       case 'all':
-        startDate = new Date(0);
+        startDate = new Date(0); // ✅ Unix epoch (Jan 1, 1970) - includes ALL uploads
         break;
       default:
-        startDate.setDate(now.getDate() - 7);
+        startDate = new Date(0);
     }
 
-    // Fetch uploads within date range
-    const uploads = await Upload.find({
-      userId,
-      createdAt: { $gte: startDate }
-    }).sort({ createdAt: -1 });
+    // ✅ FIXED: For "all" time, don't filter by date at all
+    const query = timeRange === 'all' 
+      ? { userId }  // No date filter
+      : { userId, createdAt: { $gte: startDate } };  // With date filter
 
-    console.log(`✅ Found ${uploads.length} uploads in date range`);
+    // Fetch uploads within date range
+    const uploads = await Upload.find(query).sort({ createdAt: -1 });
+
+    console.log(`✅ Found ${uploads.length} uploads in date range: ${timeRange}`);
+
+    // ... rest of the function stays the same
 
     // Calculate overview statistics
     const totalUploads = uploads.length;
@@ -312,12 +316,11 @@ export const getAnalytics = async (req, res) => {
     const totalReports = uploads.reduce((sum, upload) => sum + (upload.reportCount || 0), 0);
 
     // Format storage (bytes to MB/KB)
-    const formatStorage = (bytes) => {
-      if (bytes === 0) return '0 KB';
-      const mb = bytes / (1024 * 1024);
-      return mb < 1 ? `${(bytes / 1024).toFixed(2)} KB` : `${mb.toFixed(2)} MB`;
-    };
-
+   const formatStorage = (bytes) => {
+  if (bytes === 0) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(2)} MB`; // Always MB
+};
     // Generate upload trend data (last 7 days)
     const uploadTrend = [];
     for (let i = 6; i >= 0; i--) {
@@ -478,39 +481,36 @@ export const viewUserDetails = async (req, res) => {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const chartCount = await Upload.aggregate([
-      { 
-        $match: { 
-          userId: new mongoose.Types.ObjectId(userId),
-          createdAt: { $gte: startOfMonth }
-        } 
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$chartCount" },
-        }
-      }
-    ]);
+    // ✅ Counts ALL charts (matching Analytics behavior)
+const chartCount = await Upload.aggregate([
+  { 
+    $match: { 
+      userId: new mongoose.Types.ObjectId(userId)
+      // ✅ No date filter - counts ALL charts
+    } 
+  },
+  { $group: { _id: null, total: { $sum: "$chartCount" } } }
+]);
     const chartsGenerated = chartCount.length > 0 ? chartCount[0].total : 0;
 
-    const stats = {
-      totalUploads,
-      filesProcessed,
-      storageUsedPercent: storageUsedPercent,
-      storageUsed,
-      storageUnit,
-      storageQuota: 100,
-      activeReports,
-      chartsGenerated: chartsGenerated,
-    };
-
-    res.json({ user, stats });
+    // ✅ SIMPLIFIED RESPONSE: Return stats directly
+    res.json({
+      stats: {
+        totalUploads,
+        filesProcessed,
+        storageUsedPercent,
+        storageUsed,
+        storageUnit,
+        storageQuota: 100,
+        activeReports,
+        chartsGenerated,
+      }
+    });
   } catch (error) {
     console.error("Dashboard stats error:", error);
     res.status(500).json({ message: "Error fetching dashboard statistics" });
   }
-};
+}; // ✅ CLOSING BRACE WAS MISSING HERE!
 
 // Update chart generated count
 export const chartCountUpdate = async (req, res) => {

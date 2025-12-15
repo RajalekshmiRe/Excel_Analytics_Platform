@@ -382,7 +382,7 @@ export default function Analytics() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [timeRange, setTimeRange] = useState('7days');
+ const [timeRange, setTimeRange] = useState('all')
   const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -562,32 +562,32 @@ export default function Analytics() {
   };
 
 // ✅ ADD THIS useEffect for auto-refresh polling (around line 67, after the first useEffect)
+// ✅ POLLING + TIME RANGE: Fetch analytics with auto-refresh
+  useEffect(() => {
+    if (!currentUser?.id) return;
 
-useEffect(() => {
-  if (!currentUser?.id) return;
-
-  // Fetch immediately on mount
-  fetchAnalytics();
-
-  // Set up polling interval - refresh every 30 seconds
-  const intervalId = setInterval(() => {
-    console.log("🔄 Auto-refreshing analytics data...");
+    // Fetch immediately
     fetchAnalytics();
-  }, 30000); // 30 seconds
 
-  // Refresh when window regains focus
-  const handleFocus = () => {
-    console.log("👁️ Window focused, refreshing analytics...");
-    fetchAnalytics();
-  };
-  window.addEventListener('focus', handleFocus);
+    // Set up polling interval
+    const intervalId = setInterval(() => {
+      console.log(`🔄 Auto-refreshing analytics (${timeRange})...`);
+      fetchAnalytics();
+    }, 30000); // 30 seconds
 
-  // Cleanup
-  return () => {
-    clearInterval(intervalId);
-    window.removeEventListener('focus', handleFocus);
-  };
-}, [timeRange, currentUser?.id]); // Re-run when timeRange or user changes
+    // Refresh when window regains focus
+    const handleFocus = () => {
+      console.log("👁️ Window focused, refreshing analytics...");
+      fetchAnalytics();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [timeRange, currentUser?.id]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 

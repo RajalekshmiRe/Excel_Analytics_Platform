@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Table, BarChart3, Loader2, AlertCircle } from 'lucide-react';
 import Papa from 'papaparse';
@@ -9,16 +9,31 @@ import toast, { Toaster } from 'react-hot-toast';
 const AnalysisView = () => {
   const { fileId } = useParams();
   const navigate = useNavigate();
-  console.log('🔥 AnalysisView loaded! FileId:', fileId); // ADD THIS LINE
+  console.log('🔥 AnalysisView loaded! FileId:', fileId);
   
   const [loading, setLoading] = useState(true);
   const [fileInfo, setFileInfo] = useState(null);
   const [fileData, setFileData] = useState(null);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('preview');
+  
+  // ✅ Prevent duplicate toasts and loads
+  const loadAttemptedRef = useRef(false);
+  const toastShownRef = useRef(false);
 
   useEffect(() => {
-    loadFileData();
+    // ✅ Only load once, even in Strict Mode
+    if (!loadAttemptedRef.current) {
+      loadAttemptedRef.current = true;
+      toastShownRef.current = false; // Reset toast flag
+      loadFileData();
+    }
+    
+    // Cleanup
+    return () => {
+      loadAttemptedRef.current = false;
+      toastShownRef.current = false;
+    };
   }, [fileId]);
 
   const loadFileData = async () => {
@@ -41,146 +56,248 @@ const AnalysisView = () => {
       console.log('✅ Metadata received:', metaResponse.data);
       setFileInfo(metaResponse.data);
       
-   // Step 2: Try downloading file (may not exist on Render)
-try {
-  console.log('📥 Downloading file...');
-  const downloadResponse = await api.get(
-    `/uploads/${fileId}/download`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      responseType: 'blob'
-    }
-  );
+      // Step 2: Try downloading and parsing file
+      try {
+        console.log('📥 Downloading file...');
+        const downloadResponse = await api.get(
+          `/uploads/${fileId}/download`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            responseType: 'blob'
+          }
+        );
 
-  const blob = downloadResponse.data;
-  const fileExtension = metaResponse.data.originalName
-    .split('.')
-    .pop()
-    .toLowerCase();
+        console.log('✅ File downloaded, size:', downloadResponse.data.size);
 
-  if (fileExtension === 'csv') {
-    await parseCSV(blob);
-  } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-    await parseExcel(blob);
-  }
-} catch (downloadErr) {
-  // ✅ THIS IS THE KEY FIX
-  if (downloadErr.response?.status === 404) {
-    console.warn('⚠️ File missing on server, loading metadata only');
-    toast.info('File content unavailable. You can still view details.');
-  } else {
-    throw downloadErr;
-  }
-}
-
-      console.log('✅ File downloaded, size:', downloadResponse.data.size);
-
-      // Parse based on file type
-      const blob = downloadResponse.data;
-      const fileExtension = metaResponse.data.originalName.split('.').pop().toLowerCase();
-      
-      console.log('🔍 Parsing file type:', fileExtension);
-      
-      if (fileExtension === 'csv') {
-        await parseCSV(blob);
-      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        await parseExcel(blob);
-      } else {
-        throw new Error('Unsupported file format');
+        // Determine file type and parse
+        const blob = downloadResponse.data;
+        const fileName = metaResponse.data.originalName || metaResponse.data.filename || '';
+        const fileExtension = fileName.split('.').pop().toLowerCase();
+        
+        console.log('🔍 Parsing file type:', fileExtension);
+        
+        if (fileExtension === 'csv') {
+          await parseCSV(blob);
+        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+          await parseExcel(blob);
+        } else {
+          throw new Error(`Unsupported file format: ${fileExtension}`);
+        }
+        
+      } catch (downloadErr) {
+        // Handle file download/parsing errors gracefully
+        if (downloadErr.response?.status === 404) {
+          console.warn('⚠️ File not found on server (may have been cleaned up)');
+          if (!toastShownRef.current) {
+            toast('File content unavailable. Metadata is still shown.', {
+              id: `file-unavailable-${fileId}`,
+              icon: 'ℹ️',
+              duration: 4000
+            });
+            toastShownRef.current = true;
+          }
+        } else if (downloadErr.message?.includes('Unsupported')) {
+          console.error('❌ Unsupported file format');
+          if (!toastShownRef.current) {
+            toast.error(downloadErr.message, {
+              id: `unsupported-${fileId}`
+            });
+            toastShownRef.current = true;
+          }
+          throw downloadErr;
+        } else {
+          console.error('❌ Download/parsing error:', downloadErr);
+          if (!toastShownRef.current) {
+            toast.error('Failed to load file content', {
+              id: `load-error-${fileId}`
+            });
+            toastShownRef.current = true;
+          }
+          throw downloadErr;
+        }
       }
-      
-      // toast.success('File loaded successfully!'); // Removed - parseCSV/parseExcel show success
       
     } catch (err) {
       console.error('❌ Error loading file:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to load file');
-      toast.error('Failed to load file data');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load file';
+      setError(errorMessage);
+      if (!toastShownRef.current) {
+        toast.error('Failed to load file data', {
+          id: `error-${fileId}`
+        });
+        toastShownRef.current = true;
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const parseCSV = async (blob) => {
-    const text = await blob.text();
-    Papa.parse(text, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        console.log('✅ CSV parsed:', results.data.length, 'rows');
-        setFileData({
-          headers: results.meta.fields,
-          rows: results.data,
-          rowCount: results.data.length
+    return new Promise((resolve, reject) => {
+      const text = blob.text();
+      
+      text.then(content => {
+        Papa.parse(content, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            console.log('✅ CSV parsed:', results.data.length, 'rows');
+            
+            if (results.data.length === 0 || !results.meta.fields || results.meta.fields.length === 0) {
+              console.warn('⚠️ CSV file is empty or has no headers');
+              if (!toastShownRef.current) {
+                toast('CSV file appears to be empty', {
+                  id: `empty-csv-${fileId}`,
+                  icon: 'ℹ️',
+                  duration: 4000
+                });
+                toastShownRef.current = true;
+              }
+              resolve();
+              return;
+            }
+            
+            setFileData({
+              headers: results.meta.fields,
+              rows: results.data,
+              rowCount: results.data.length
+            });
+            
+            if (!toastShownRef.current) {
+              toast.success(`CSV loaded! ${results.data.length} rows`, {
+                id: `csv-success-${fileId}`,
+                duration: 3000
+              });
+              toastShownRef.current = true;
+            }
+            resolve();
+          },
+          error: (error) => {
+            console.error('❌ CSV parsing error:', error);
+            reject(new Error('CSV parsing failed: ' + error.message));
+          }
         });
-      },
-      error: (error) => {
-        throw new Error('CSV parsing failed: ' + error.message);
-      }
+      }).catch(err => {
+        console.error('❌ Error reading blob:', err);
+        reject(err);
+      });
     });
   };
 
   const parseExcel = async (blob) => {
-    const arrayBuffer = await blob.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-    
-    if (jsonData.length === 0) {
-      throw new Error('Excel file is empty');
-    }
-    
-    const headers = jsonData[0];
-    const rows = jsonData.slice(1).map(row => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        obj[header] = row[index];
-      });
-      return obj;
-    });
-    
-    console.log('✅ Excel parsed:', rows.length, 'rows');
-    setFileData({
-      headers: headers,
-      rows: rows,
-      rowCount: rows.length
+    return new Promise((resolve, reject) => {
+      try {
+        const arrayBuffer = blob.arrayBuffer();
+        
+        arrayBuffer.then(buffer => {
+          const workbook = XLSX.read(buffer, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+          
+          if (jsonData.length === 0) {
+            console.warn('⚠️ Excel file is empty');
+            if (!toastShownRef.current) {
+              toast('Excel file appears to be empty', {
+                id: `empty-excel-${fileId}`,
+                icon: 'ℹ️',
+                duration: 4000
+              });
+              toastShownRef.current = true;
+            }
+            resolve();
+            return;
+          }
+          
+          const headers = jsonData[0];
+          const rows = jsonData.slice(1).map(row => {
+            const obj = {};
+            headers.forEach((header, index) => {
+              obj[header] = row[index];
+            });
+            return obj;
+          });
+          
+          if (rows.length === 0) {
+            console.warn('⚠️ Excel file has headers but no data rows');
+            if (!toastShownRef.current) {
+              toast('Excel file has no data rows', {
+                id: `no-data-excel-${fileId}`,
+                icon: 'ℹ️',
+                duration: 4000
+              });
+              toastShownRef.current = true;
+            }
+          }
+          
+          console.log('✅ Excel parsed:', rows.length, 'rows');
+          setFileData({
+            headers: headers,
+            rows: rows,
+            rowCount: rows.length
+          });
+          
+          if (!toastShownRef.current) {
+            toast.success(`Excel loaded! ${rows.length} rows`, {
+              id: `excel-success-${fileId}`,
+              duration: 3000
+            });
+            toastShownRef.current = true;
+          }
+          resolve();
+        }).catch(err => {
+          console.error('❌ Error reading array buffer:', err);
+          reject(err);
+        });
+      } catch (err) {
+        console.error('❌ Excel parsing error:', err);
+        reject(new Error('Excel parsing failed: ' + err.message));
+      }
     });
   };
 
   const handleDownload = async () => {
-  try {
-    const token = localStorage.getItem('token');
+    try {
+      const token = localStorage.getItem('token');
 
-    const response = await api.get(
-      `/uploads/${fileId}/download`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-        responseType: 'blob'
+      const response = await api.get(
+        `/uploads/${fileId}/download`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileInfo?.originalName || 'file');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('File downloaded!', {
+        id: `download-${fileId}`,
+        duration: 2000
+      });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        console.warn('⚠️ File not found on server (Render cleanup)');
+        toast('File no longer available. Please re-upload if needed.', {
+          id: `download-404-${fileId}`,
+          icon: 'ℹ️',
+          duration: 4000
+        });
+        return;
       }
-    );
 
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', fileInfo?.originalName || 'file');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-
-    toast.success('File downloaded!');
-  } catch (err) {
-    // ✅ IMPORTANT FIX
-    if (err.response?.status === 404) {
-      console.warn('⚠️ File not found on server (Render cleanup)');
-      toast.info('File no longer available. Please re-upload if needed.');
-      return; // 👈 do NOT break AnalysisView
+      console.error('Download error:', err);
+      toast.error('Download failed', {
+        id: `download-error-${fileId}`
+      });
     }
-
-    console.error('Download error:', err);
-    toast.error('Download failed');
-  }
-};
+  };
 
   const getColumnStats = (columnName) => {
     if (!fileData) return null;
@@ -218,6 +335,7 @@ try {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#f8f9fa] to-[#e9ecef] flex items-center justify-center p-8">
+        <Toaster position="top-center" />
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading File</h2>
@@ -296,7 +414,7 @@ try {
           </div>
 
           <div className="p-6">
-            {activeTab === 'preview' && fileData && (
+            {activeTab === 'preview' && fileData && fileData.rows.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
@@ -328,7 +446,7 @@ try {
               </div>
             )}
 
-            {activeTab === 'stats' && fileData && (
+            {activeTab === 'stats' && fileData && fileData.rows.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {fileData.headers.map((header, idx) => {
                   const stats = getColumnStats(header);
@@ -371,6 +489,20 @@ try {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Show message if no file data (metadata only) */}
+            {(!fileData || fileData.rows.length === 0) && !error && (
+              <div className="text-center py-12">
+                <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 text-lg font-semibold mb-2">File Content Unavailable</p>
+                <p className="text-gray-500">
+                  {!fileData 
+                    ? 'The file may have been cleaned up from the server.' 
+                    : 'The file contains no data rows.'}
+                </p>
+                <p className="text-gray-500 text-sm mt-2">Metadata is still available above.</p>
               </div>
             )}
           </div>

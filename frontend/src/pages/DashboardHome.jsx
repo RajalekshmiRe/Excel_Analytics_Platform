@@ -2074,51 +2074,42 @@ export default function DashboardHome() {
     }
   };
 
-  // Function to fetch user stats - WITH DEBUGGING
-  const viewUserDetails = async (id) => {
-    try {
-      console.log("🔍 Fetching stats for user ID:", id);
-      
-      // Try userAPI first (since you're logged in as a user, not admin)
-      let response;
-      try {
-        response = await userAPI.getUserStats(id);
-        console.log("✅ User API response:", response.data);
-      } catch (userErr) {
-        console.warn("⚠️ User API failed, trying admin API:", userErr);
-        response = await adminAPI.getUserStats(id);
-        console.log("✅ Admin API response:", response.data);
-      }
-      
-      const data = response.data;
-      
-      // Log the full response to see structure
-      console.log("📊 Full API data structure:", JSON.stringify(data, null, 2));
-      
-      // Handle different possible response structures
-      const statsData = data.stats || data.data?.stats || data;
-      
-      const newStats = {
-        uploads: statsData.totalUploads || statsData.uploads || 0,
-        storage: statsData.storageUsed 
-          ? `${statsData.storageUsed} ${statsData.storageUnit || 'MB'}`
-          : (statsData.storage || '0 MB'),
-        reports: statsData.activeReports || statsData.reports || 0,
-        charts: statsData.chartsGenerated || statsData.charts || 0,
-      };
-      
-      console.log("✅ Setting stats:", newStats);
-      setStats(newStats);
-    } catch (err) {
-      console.error("❌ Error fetching user details:", err);
-      console.error("Error details:", {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      setStats(savedStats);
-    }
-  };
+// Function to fetch user stats - WITH DEBUGGING
+const viewUserDetails = async (id) => {
+  try {
+    console.log("🔍 Fetching stats for user ID:", id);
+    
+    const response = await userAPI.getUserStats(id);
+    console.log("✅ Stats API response:", response.data);
+    
+    const data = response.data;
+    
+    // ✅ FIXED: Handle the nested structure correctly
+    const statsData = data.stats || data;
+    
+    const newStats = {
+      uploads: statsData.totalUploads || 0,
+      storage: statsData.storageUsed 
+        ? `${statsData.storageUsed} ${statsData.storageUnit || 'MB'}`
+        : '0 MB',
+      reports: statsData.activeReports || 0,
+      charts: statsData.chartsGenerated || 0,
+    };
+    
+    console.log("✅ Setting stats:", newStats);
+    setStats(newStats);
+  } catch (err) {
+    console.error("❌ Error fetching user details:", err);
+    console.error("Error details:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
+    
+    // Don't show error toast on every refresh
+    setStats({ uploads: 0, storage: "0 MB", reports: 0, charts: 0 });
+  }
+};
 
   // Get user from localStorage on mount
   useEffect(() => {
@@ -2128,13 +2119,32 @@ export default function DashboardHome() {
     }
   }, []);
   
+  // ✅ POLLING: Auto-refresh stats every 30 seconds
   useEffect(() => {
-    if (currentUser?.id) {
+    if (!currentUser?.id) return;
+
+    // Initial fetch
+    viewUserDetails(currentUser.id);
+
+    // Set up polling interval
+    const intervalId = setInterval(() => {
+      console.log("🔄 Auto-refreshing dashboard stats...");
       viewUserDetails(currentUser.id);
-    } else {
-      setStats(savedStats);
-    }
-  }, [currentUser]);
+    }, 30000); // 30 seconds
+
+    // Refresh when window regains focus
+    const handleFocus = () => {
+      console.log("👁️ Window focused, refreshing dashboard...");
+      viewUserDetails(currentUser.id);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Cleanup
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentUser?.id]);
 
   const StatCard = ({ icon, title, value, subtitle, color, badge }) => {
     const colorClasses = {
@@ -2224,16 +2234,23 @@ export default function DashboardHome() {
         console.log("📁 Upload ID set:", normalizedUpload.id);
         toast.success("File uploaded successfully!");
         
-        setTimeout(() => refreshStats(), 1000);
-        
-        setStats((prev) => ({
-          ...prev,
-          uploads: prev.uploads + 1,
-          storage: `${(
-            parseFloat(prev.storage) +
-            selected.size / 1048576
-          ).toFixed(2)} MB`,
-        }));
+        // ✅ Refresh stats from backend after 1 second
+setTimeout(async () => {
+  await refreshStats();
+}, 1000);
+
+// ✅ Optimistic UI update (immediate feedback)
+setStats((prev) => {
+  const currentStorageMB = parseFloat(prev.storage) || 0;
+  const newSizeMB = selected.size / (1024 * 1024);
+  const totalStorageMB = (currentStorageMB + newSizeMB).toFixed(2);
+  
+  return {
+    ...prev,
+    uploads: prev.uploads + 1,
+    storage: `${totalStorageMB} MB`,
+  };
+});
       } else {
         console.warn("⚠️ No upload ID in response:", uploadData);
         setUploadRes(null);

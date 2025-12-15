@@ -725,6 +725,16 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
       console.log("Fetched history:", res.data);
       
       const historyData = Array.isArray(res.data) ? res.data : res.data.uploads || [];
+      // ✅ ADD THIS: Debug file sizes
+console.log("📊 File size debugging:");
+historyData.forEach((item, idx) => {
+  console.log(`File ${idx + 1}:`, {
+    filename: item.filename || item.originalname,
+    size: item.size,
+    filesize: item.filesize,
+    fileSize: item.fileSize
+  });
+});
       setHistory(historyData);
     } catch (error) {
       console.error("Error fetching uploads history:", error);
@@ -735,25 +745,29 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
+    // Initial fetch
     fetchHistory();
     
+    // Refresh on window focus
     const handleFocus = () => {
-      console.log("Window focused, refreshing upload history...");
+      console.log("👁️ Window focused, refreshing upload history...");
       fetchHistory();
     };
-    
     window.addEventListener('focus', handleFocus);
     
+    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
+      console.log("🔄 Auto-refreshing upload history...");
       fetchHistory();
     }, 30000);
     
+    // Cleanup
     return () => {
       window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
-  }, [location, navigate]);
+  }, [location.pathname]); // Only re-run if URL changes
 
   const handleDelete = async (fileId) => {
     if (!window.confirm("Are you sure you want to delete this file?")) return;
@@ -775,13 +789,24 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
  const handleAnalyze = (item) => {
   navigate(`/dashboard/analysis/${item._id || item.id}`);
 };
-  const formatFileSize = (bytes) => {
-  if (bytes === undefined || bytes === null) return "—";
-  if (bytes === 0) return "—"; // unknown size (old uploads)
+const formatFileSize = (bytes) => {
+  // Handle undefined/null
+  if (bytes === undefined || bytes === null) return "Unknown";
+  
+  // Handle actual zero bytes (empty files)
+  if (bytes === 0) return "0 MB";
+  
+  // Convert to MB
   const mb = bytes / (1024 * 1024);
+  
+  // If less than 0.01 MB, show in KB
+  if (mb < 0.01) {
+    const kb = bytes / 1024;
+    return `${kb.toFixed(2)} KB`;
+  }
+  
   return `${mb.toFixed(2)} MB`;
 };
-
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -865,8 +890,13 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Storage</p>
                   <p className={`text-4xl font-bold ${textColor}`}>
-                    {formatFileSize(history.reduce((sum, item) => sum + (item.size || item.filesize || 0), 0))}
-                  </p>
+  {formatFileSize(
+    history.reduce((sum, item) => {
+      const fileSize = item.size || item.filesize || item.fileSize || 0;
+      return sum + fileSize;
+    }, 0)
+  )}
+</p>
                 </div>
                 <div className={`w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg`}>
                   <TrendingUp className="w-7 h-7 text-white" />
@@ -919,15 +949,12 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
 
                 {/* File Details */}
                 <div className="space-y-3 mb-4 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Size:</span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatFileSize(
-  item.size !== undefined ? item.size : item.filesize
-)}
-
-                    </span>
-                  </div>
+                 <div className="flex justify-between items-center">
+  <span className="text-sm text-gray-600">Size:</span>
+  <span className="text-sm font-semibold text-gray-900">
+    {formatFileSize(item.size || item.filesize || item.fileSize || 0)}
+  </span>
+</div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Uploaded:</span>
                     <span className="text-sm font-semibold text-gray-900">

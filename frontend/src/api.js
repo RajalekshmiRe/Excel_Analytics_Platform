@@ -416,10 +416,10 @@ export const guestAPI = {
 export const userAPI = {
   requestAdminAccess: (data) => api.post('/request', data),
   getUserRequest: (userId) => api.get(`/request/${userId}`),
+  getUserStats: (userId) => api.get(`/analysis/stats/${userId}`),  // ✅ ADD THIS LINE
   updateChart: (id) => api.patch(`/analysis/update-chart/${id}`),
   updateReport: (id) => api.patch(`/analysis/update-report/${id}`),
 };
-
 // ============================================================
 // 👨‍💼 ADMIN API
 // ============================================================

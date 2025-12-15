@@ -749,16 +749,16 @@
 
 
 
-
 import React, { useState, useEffect } from "react";
 import { User, Mail, Lock, Bell, Shield, Save, Check, X } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import api from "../api";
 
 const Settings = ({ currentUser, theme, setTheme }) => {
+  // ✅ CHANGE 1: Initialize with empty strings (will be populated by useEffect)
   const [formData, setFormData] = useState({
-    name: currentUser?.name || "",
-    email: currentUser?.email || "",
+    name: "",
+    email: "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -776,12 +776,43 @@ const Settings = ({ currentUser, theme, setTheme }) => {
 
   const [loading, setLoading] = useState(false);
 
-  // 🎨 UPDATED: Light theme to match other pages and contrast with purple sidebar
+  // 🎨 UNCHANGED: Light theme to match other pages
   const bgColor = "bg-gradient-to-b from-[#f8f9fa] to-[#e9ecef]";
   const cardBg = "bg-white";
   const textColor = "text-gray-900";
   const borderColor = "border-gray-200";
   const accentGradient = "from-[#bc4e9c] to-[#f80759]";
+
+  // ✅ CHANGE 2: Load user data when component mounts
+  useEffect(() => {
+    // Get user from localStorage
+    const storedUser = localStorage.getItem('user');
+    
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        console.log("📋 Loading user data into form:", user);
+        
+        setFormData(prev => ({
+          ...prev,
+          name: user.name || "",
+          email: user.email || ""
+        }));
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+    }
+    
+    // Also try from currentUser prop as fallback
+    if (currentUser) {
+      console.log("📋 Loading from currentUser prop:", currentUser);
+      setFormData(prev => ({
+        ...prev,
+        name: currentUser.name || "",
+        email: currentUser.email || ""
+      }));
+    }
+  }, [currentUser]);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -900,11 +931,14 @@ const Settings = ({ currentUser, theme, setTheme }) => {
     toast.success("Notification preferences saved!");
   };
 
-  const initials = currentUser?.name
-    ?.split(" ")
+  // ✅ CHANGE 3: Use localStorage as fallback for display
+  const displayUser = currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+
+  const initials = (displayUser?.name || "User")
+    .split(" ")
     .map((n) => n[0])
     .join("")
-    .toUpperCase() || "U";
+    .toUpperCase();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme") || "light";
@@ -939,8 +973,8 @@ const Settings = ({ currentUser, theme, setTheme }) => {
                 </div>
                 <div className="absolute -bottom-2 -right-2 h-8 w-8 bg-green-500 border-4 border-white rounded-full"></div>
               </div>
-              <h2 className={`text-2xl font-bold mb-2 ${textColor}`}>{currentUser?.name}</h2>
-              <p className="text-gray-600 break-all">{currentUser?.email}</p>
+              <h2 className={`text-2xl font-bold mb-2 ${textColor}`}>{displayUser?.name || "User"}</h2>
+              <p className="text-gray-600 break-all">{displayUser?.email || "No email"}</p>
             </div>
           </div>
 
