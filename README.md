@@ -1,6 +1,15 @@
 # 📊 Excel Analytics Platform
 
-🚀 **Live Demo:** [https://excel-analytics-platform.onrender.com](https://excel-analytics-platform.onrender.com)
+A modern full-stack MERN web application that allows users to upload Excel files, analyze data, and generate interactive 2D and 3D charts with role-based access control.
+
+## 🌐 Live Demo
+
+**Experience Excel Analytics Platform live!**
+
+🔗 **Frontend Application**: [https://excel-analytics-platform-ivory.vercel.app](https://excel-analytics-platform-ivory.vercel.app)
+
+🔗 **Backend API**: [https://excel-analytics-platform.onrender.com](https://excel-analytics-platform.onrender.com)
+
 ⚠️ *Note: The first load may take 30–60 seconds due to Render cold start.*
 
 ---
@@ -87,6 +96,7 @@ This project was developed as part of a **Web Developer Internship at Zidio Deve
 | Axios               | API Requests       |
 | Chart.js / Recharts | Data Visualization |
 | Tailwind CSS        | Styling            |
+| **Deployed on Vercel** | **Frontend Hosting** |
 
 ### Backend
 
@@ -97,12 +107,14 @@ This project was developed as part of a **Web Developer Internship at Zidio Deve
 | MongoDB    | Database       |
 | Mongoose   | ODM            |
 | JWT        | Authentication |
+| **Deployed on Render** | **Backend Hosting** |
 
 ### Deployment
 
 | Service       | Usage                      |
 | ------------- | -------------------------- |
-| Render        | Backend & Frontend Hosting |
+| Vercel        | Frontend Hosting           |
+| Render        | Backend API Hosting        |
 | MongoDB Atlas | Cloud Database             |
 
 ---
@@ -154,6 +166,7 @@ Create a `.env` file:
 PORT=5000
 MONGO_URI=your_mongodb_uri
 JWT_SECRET=your_secret_key
+NODE_ENV=development
 ```
 
 Run backend:
@@ -161,6 +174,8 @@ Run backend:
 ```bash
 npm start
 ```
+
+Backend will run on `http://localhost:5000`
 
 ### 3️⃣ Frontend Setup
 
@@ -170,27 +185,74 @@ npm install
 npm run dev
 ```
 
+Frontend will run on `http://localhost:3000`
+
 ---
 
-## 🔌 API Endpoints (Sample)
+## 🔌 API Endpoints
+
+### Authentication
 
 | Method | Endpoint           | Description          |
 | ------ | ------------------ | -------------------- |
 | POST   | /api/auth/login    | User/Admin login     |
 | POST   | /api/auth/register | User registration    |
-| POST   | /api/upload        | Upload Excel file    |
-| GET    | /api/files         | Fetch upload history |
-| GET    | /api/admin/users   | Admin – manage users |
+
+### File Management
+
+| Method | Endpoint      | Description          |
+| ------ | ------------- | -------------------- |
+| POST   | /api/upload   | Upload Excel file    |
+| GET    | /api/files    | Fetch upload history |
+
+### Admin Controls
+
+| Method | Endpoint          | Description        |
+| ------ | ----------------- | ------------------ |
+| GET    | /api/admin/users  | Manage users       |
+| PUT    | /api/admin/users/:id | Update user status |
+
+### Analytics
+
+| Method | Endpoint           | Description              |
+| ------ | ------------------ | ------------------------ |
+| GET    | /api/analytics     | Get analytics data       |
+| POST   | /api/charts        | Generate chart           |
+
+---
+
+## 🚀 Deployment
+
+This application is deployed and live with separate frontend and backend services:
+
+### Frontend Deployment (Vercel)
+- **Platform**: Vercel
+- **URL**: [https://excel-analytics-platform-ivory.vercel.app](https://excel-analytics-platform-ivory.vercel.app)
+- **Features**: Automatic deployments from main branch, CDN distribution, SSL certificate
+
+### Backend Deployment (Render)
+- **Platform**: Render
+- **URL**: [https://excel-analytics-platform.onrender.com](https://excel-analytics-platform.onrender.com)
+- **Features**: Environment variables securely configured, automatic SSL, health monitoring
+- **Note**: First request may take 30-60 seconds due to cold start on free tier
+
+### Database
+- **Platform**: MongoDB Atlas
+- **Type**: Cloud-hosted NoSQL database
+- **Features**: Automatic backups, monitoring, scalability
 
 ---
 
 ## 🔒 Security & Performance
 
 * JWT authentication & authorization
-* Password hashing
-* Protected routes
+* Password hashing with bcrypt
+* Protected routes and middleware
 * Environment variable configuration
+* CORS configuration
+* Input validation and sanitization
 * Optimized API responses
+* Rate limiting on API endpoints
 
 ---
 
@@ -199,8 +261,11 @@ npm run dev
 * AI-based insights from Excel data
 * PDF report generation
 * Advanced chart customization
-* Real-time collaboration
-* Email notifications
+* Real-time collaboration features
+* Email notifications for reports
+* Multi-language support
+* Advanced data filtering options
+* Export to multiple formats (CSV, JSON, PDF)
 
 ---
 
@@ -208,12 +273,36 @@ npm run dev
 
 **Rajalekshmi Reji**
 
-📧 Email: [rajalekshmireji07@gmail.com](mailto:rajalekshmireji07@gmail.com)
-💼 LinkedIn: [https://www.linkedin.com/in/rajalekshmi-reji](https://www.linkedin.com/in/rajalekshmi-reji)
-💻 GitHub: [https://github.com/RajalekshmiRe](https://github.com/RajalekshmiRe)
+📧 Email: [rajalekshmireji07@gmail.com](mailto:rajalekshmireji07@gmail.com)  
+💼 LinkedIn: [https://www.linkedin.com/in/rajalekshmi-reji](https://www.linkedin.com/in/rajalekshmi-reji)  
+💻 GitHub: [https://github.com/RajalekshmiRe](https://github.com/RajalekshmiRe)  
+🌐 Live Demo: [https://excel-analytics-platform-ivory.vercel.app](https://excel-analytics-platform-ivory.vercel.app)
 
-🎓 MCA Student | MERN Stack Developer | Web Developer Intern
+🎓 MCA Student | MERN Stack Developer | Web Developer Intern at Zidio Development
 
 ---
 
-⭐ *If you like this project, don’t forget to star the repository!*
+## 📄 License
+
+This project is developed as part of an internship program. All rights reserved.
+
+---
+
+## 🙏 Acknowledgments
+
+* **Zidio Development** - For the internship opportunity and guidance
+* Thanks to all contributors and mentors who helped improve this project
+* Built with modern MERN stack technologies
+* Inspired by enterprise-level data analytics platforms
+
+---
+
+## 📞 Support
+
+If you have any questions or need help, please open an issue in the GitHub repository or contact via email.
+
+---
+
+⭐ **If you like this project, don't forget to star the repository!**
+
+**Live at**: [https://excel-analytics-platform-ivory.vercel.app](https://excel-analytics-platform-ivory.vercel.app)
