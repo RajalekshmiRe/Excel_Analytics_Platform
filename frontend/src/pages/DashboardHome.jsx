@@ -2186,45 +2186,43 @@ export default function DashboardHome() {
     );
   };
 
-  const handleFileUpload = async (e) => {
-    const selected = e.target.files[0];
-    if (!selected) return;
+ const handleFileUpload = async (e) => {
+  const selected = e.target.files[0];
+  if (!selected) return;
 
-    const validTypes = [".csv", ".xlsx", ".xls"];
-    const fileExtension = selected.name
-      .substring(selected.name.lastIndexOf("."))
-      .toLowerCase();
+  const validTypes = [".csv", ".xlsx", ".xls"];
+  const fileExtension = selected.name
+    .substring(selected.name.lastIndexOf("."))
+    .toLowerCase();
 
-    if (!validTypes.includes(fileExtension)) {
-      toast.error("Please upload a CSV, XLS, or XLSX file!");
-      return;
-    }
+  if (!validTypes.includes(fileExtension)) {
+    toast.error("Please upload a CSV, XLS, or XLSX file!");
+    return;
+  }
 
-    setFile(selected);
+  setFile(selected);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", selected);
+  try {
+    const formData = new FormData();
+    formData.append("file", selected);
 
-      const loadingToast = toast.loading("Uploading file...");
+    const loadingToast = toast.loading("Uploading file...");
 
-      console.log("📤 Starting upload:", {
-        fileName: selected.name,
-        fileSize: selected.size,
-        fileType: selected.type
-      });
+    console.log("📤 Starting upload:", {
+      fileName: selected.name,
+      fileSize: selected.size,
+      fileType: selected.type
+    });
 
-      const response = await api.post('/uploads', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+    const response = await api.post('/uploads', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
 
-      toast.dismiss(loadingToast);
-      console.log("✅ Upload successful:", response.data);
+    toast.dismiss(loadingToast);
+    console.log("✅ Upload response:", response.data);
 
-      const uploadData = response.data.file || 
-                        response.data.upload || 
-                        response.data.data ||
-                        response.data;
+    if (response.data.success) {
+      const uploadData = response.data.file;
       
       if (uploadData && (uploadData.id || uploadData._id)) {
         const normalizedUpload = {
@@ -2258,104 +2256,108 @@ export default function DashboardHome() {
         console.warn("⚠️ No upload ID in response:", uploadData);
         setUploadRes(null);
       }
+    } else {
+      throw new Error(response.data.message || 'Upload failed');
+    }
 
-    } catch (error) {
-      toast.dismiss();
-      setUploadRes(null);
-      console.error("❌ Upload error:", error);
-      
-      if (error.response?.status === 500) {
-        console.warn("⚠️ Server error, continuing with local preview");
-      } else {
-        const errorMsg = error.response?.data?.message || 
-                        error.response?.data?.error ||
-                        error.message || 
-                        "Failed to upload file";
-        toast.error(errorMsg);
+  } catch (error) {
+    toast.dismiss();
+    setUploadRes(null);
+    console.error("❌ Upload error:", error);
+    console.error("Error response:", error.response?.data);
+    
+    const errorMsg = error.response?.data?.message || 
+                    error.response?.data?.error ||
+                    error.message || 
+                    "Failed to upload file";
+    toast.error(errorMsg);
+    
+    // Don't parse locally if upload failed
+    return;
+  }
+
+  // Parse the file for preview
+  if (fileExtension === ".csv") {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target.result;
+        const lines = content.split("\n").filter((line) => line.trim());
+
+        if (lines.length === 0) {
+          toast.error("File is empty!");
+          return;
+        }
+
+        const rows = lines.map((line) => {
+          const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
+          const matches = [];
+          let match;
+          while ((match = regex.exec(line)) !== null) {
+            matches.push(match[0].replace(/^"|"$/g, "").trim());
+          }
+          return matches.length > 0
+            ? matches
+            : line.split(",").map((cell) => cell.trim());
+        });
+
+        setFileData({
+          headers: rows[0] || [],
+          rows: rows.slice(1, 31),
+        });
+        
+        console.log("✅ CSV file parsed successfully");
+      } catch (error) {
+        console.error("CSV parsing error:", error);
+        toast.error("Failed to parse CSV file!");
       }
-    }
+    };
 
-    if (fileExtension === ".csv") {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const content = event.target.result;
-          const lines = content.split("\n").filter((line) => line.trim());
+    reader.onerror = () => {
+      toast.error("Failed to read file!");
+    };
 
-          if (lines.length === 0) {
-            toast.error("File is empty!");
-            return;
-          }
-
-          const rows = lines.map((line) => {
-            const regex = /(".*?"|[^",\s]+)(?=\s*,|\s*$)/g;
-            const matches = [];
-            let match;
-            while ((match = regex.exec(line)) !== null) {
-              matches.push(match[0].replace(/^"|"$/g, "").trim());
-            }
-            return matches.length > 0
-              ? matches
-              : line.split(",").map((cell) => cell.trim());
-          });
-
-          setFileData({
-            headers: rows[0] || [],
-            rows: rows.slice(1, 31),
-          });
-          
-          console.log("✅ CSV file parsed successfully");
-        } catch (error) {
-          console.error("CSV parsing error:", error);
-          toast.error("Failed to parse CSV file!");
+    reader.readAsText(selected);
+    
+  } else if (fileExtension === ".xlsx" || fileExtension === ".xls") {
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length === 0) {
+          toast.error("File is empty!");
+          return;
         }
-      };
+        
+        const filteredData = jsonData.filter(row => 
+          row.some(cell => cell !== null && cell !== undefined && cell !== '')
+        );
+        
+        setFileData({
+          headers: filteredData[0] || [],
+          rows: filteredData.slice(1, 31),
+        });
+        
+        console.log("✅ Excel file parsed successfully");
+      } catch (error) {
+        console.error("❌ Error parsing Excel file:", error);
+        toast.error("Failed to parse Excel file!");
+      }
+    };
 
-      reader.onerror = () => {
-        toast.error("Failed to read file!");
-      };
+    reader.onerror = () => {
+      toast.error("Failed to read Excel file!");
+    };
 
-      reader.readAsText(selected);
-      
-    } else if (fileExtension === ".xlsx" || fileExtension === ".xls") {
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        try {
-          const data = new Uint8Array(event.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-          
-          if (jsonData.length === 0) {
-            toast.error("File is empty!");
-            return;
-          }
-          
-          const filteredData = jsonData.filter(row => 
-            row.some(cell => cell !== null && cell !== undefined && cell !== '')
-          );
-          
-          setFileData({
-            headers: filteredData[0] || [],
-            rows: filteredData.slice(1, 31),
-          });
-          
-          console.log("✅ Excel file parsed successfully");
-        } catch (error) {
-          console.error("❌ Error parsing Excel file:", error);
-          toast.error("Failed to parse Excel file!");
-        }
-      };
-
-      reader.onerror = () => {
-        toast.error("Failed to read Excel file!");
-      };
-
-      reader.readAsArrayBuffer(selected);
-    }
-  };
+    reader.readAsArrayBuffer(selected);
+  }
+};
 
   const closePreview = () => {
     setFile(null);
