@@ -416,7 +416,10 @@ export const guestAPI = {
 export const userAPI = {
   requestAdminAccess: (data) => api.post('/request', data),
   getUserRequest: (userId) => api.get(`/request/${userId}`),
-  getUserStats: (userId) => api.get(`/analysis/stats/${userId}`),  // ✅ ADD THIS LINE
+  
+  // ✅ IMPORTANT: This should call the ADMIN endpoint, not analysis
+  getUserStats: (userId) => api.get(`/admin/users/${userId}`),
+  
   updateChart: (id) => api.patch(`/analysis/update-chart/${id}`),
   updateReport: (id) => api.patch(`/analysis/update-report/${id}`),
 };
@@ -458,10 +461,12 @@ export const adminAPI = {
   
   getAnalytics: () => api.get('/admin/analytics'),
   resetUserPassword: (data) => api.post('/admin/user-password-reset', data),
-  getUserStats: (userId) => api.get(`/analysis/stats/${userId}`),
+  
+  // ✅ FIX THIS LINE (Line 230):
+  getUserStats: (userId) => api.get(`/admin/users/${userId}`),
+  
   downloadFile: (fileId) => api.get(`/files/download/${fileId}`),
 };
-
 // ============================================================
 // 👑 SUPER ADMIN API
 // ============================================================

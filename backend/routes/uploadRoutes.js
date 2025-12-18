@@ -811,7 +811,6 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Use req.user._id from auth middleware
     const userId = req.user._id || req.user.id;
 
     const newUpload = new Upload({
@@ -851,7 +850,6 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
 
 /* ============================================================
    ✅ GET /api/uploads - Get ALL user uploads
-   This endpoint fixes the 404 error
 ============================================================ */
 router.get('/', protect, async (req, res) => {
   try {
@@ -865,7 +863,6 @@ router.get('/', protect, async (req, res) => {
 
     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
 
-    // Format for frontend compatibility
     const formattedUploads = uploads.map(upload => ({
       _id: upload._id,
       id: upload._id,
@@ -909,10 +906,8 @@ router.get('/history', protect, async (req, res) => {
     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
 
     const formattedUploads = uploads.map(upload => {
-      // Get file size from database OR read from disk if 0
       let fileSize = upload.size || 0;
       
-      // If size is 0 and file exists, read from disk
       if (fileSize === 0 && upload.path && fs.existsSync(upload.path)) {
         try {
           const stats = fs.statSync(upload.path);
@@ -949,12 +944,24 @@ router.get('/history', protect, async (req, res) => {
     });
   }
 });
+
 /* ============================================================
-   ✅ GET /api/uploads/:id/download - Download file content
+   ✅ GET /api/uploads/:id/download - Download file
+   ⚠️ MUST BE BEFORE /:id ROUTE!
+   🔧 FIXED: Returns proper 404 with message when file missing
+   
+   📝 CLOUD STORAGE NOTES (for production):
+   To use AWS S3/Google Cloud/Azure instead of local storage:
+   1. npm install @aws-sdk/client-s3 (or equivalent)
+   2. Replace fs.existsSync with S3 getObject check
+   3. Replace fs.createReadStream with S3 stream
+   Example S3 code is commented below
 ============================================================ */
 router.get('/:id/download', protect, async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
+    
+    console.log(`📥 Download request: ${req.params.id} by user ${userId}`);
     
     const upload = await Upload.findOne({
       _id: req.params.id,
@@ -962,31 +969,104 @@ router.get('/:id/download', protect, async (req, res) => {
     });
 
     if (!upload) {
-      return res.status(404).json({ message: 'File not found' });
+      console.log('❌ Upload record not found or access denied');
+      return res.status(404).json({ 
+        success: false,
+        message: 'File not found',
+        detail: 'Upload record does not exist or you do not have access'
+      });
     }
 
-    // Check if file exists
+    // ✅ FIX: Check if physical file exists BEFORE trying to stream
     if (!fs.existsSync(upload.path)) {
-      return res.status(404).json({ message: 'Physical file not found' });
+      console.log('❌ Physical file not found:', upload.path);
+      console.log('⚠️ File was deleted from server (ephemeral storage cleanup)');
+      
+      return res.status(404).json({ 
+        success: false,
+        message: 'File no longer available',
+        detail: 'File has been removed from server storage. Re-upload if needed.',
+        fileInfo: {
+          originalName: upload.originalName,
+          uploadDate: upload.createdAt,
+          size: upload.size
+        }
+      });
     }
 
-    // Read and send file
-    res.setHeader('Content-Type', upload.mimetype);
+    console.log(`✅ Sending file: ${upload.originalName}`);
+
+    // Set headers for download
+    res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+    res.setHeader('Content-Length', upload.size);
     
+    // Stream the file
     const fileStream = fs.createReadStream(upload.path);
+    
+    fileStream.on('error', (error) => {
+      console.error('❌ Stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          success: false,
+          message: 'Error streaming file' 
+        });
+      }
+    });
+    
     fileStream.pipe(res);
     
-  } catch (error) {
-    console.error('Error downloading file:', error);
-    res.status(500).json({
-      message: 'Error downloading file',
-      error: error.message
+    /* 
+    // 🚀 CLOUD STORAGE VERSION (AWS S3 Example)
+    // Uncomment and configure for production:
+    
+    const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+    
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+      }
     });
+    
+    try {
+      const command = new GetObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: upload.path // Store S3 key in database
+      });
+      
+      const { Body } = await s3Client.send(command);
+      
+      res.setHeader('Content-Type', upload.mimetype);
+      res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+      
+      Body.pipe(res);
+    } catch (s3Error) {
+      if (s3Error.Code === 'NoSuchKey') {
+        return res.status(404).json({ message: 'File not found in storage' });
+      }
+      throw s3Error;
+    }
+    */
+    
+  } catch (error) {
+    console.error('❌ Download error:', error);
+    
+    // Don't send error details if headers already sent
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Error downloading file',
+        error: error.message
+      });
+    }
   }
 });
+
 /* ============================================================
    ✅ GET /api/uploads/:id - Get single upload details
+   ⚠️ MUST BE AFTER /:id/download ROUTE!
 ============================================================ */
 router.get('/:id', protect, async (req, res) => {
   try {
@@ -1027,9 +1107,12 @@ router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => 
       return res.status(404).json({ message: 'File not found' });
     }
 
-    // Delete physical file
+    // Delete physical file (only if it exists)
     if (fs.existsSync(upload.path)) {
       fs.unlinkSync(upload.path);
+      console.log('✅ Physical file deleted:', upload.path);
+    } else {
+      console.log('⚠️ Physical file already missing:', upload.path);
     }
 
     // Delete database record

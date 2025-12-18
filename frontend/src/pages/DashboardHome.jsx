@@ -2011,7 +2011,6 @@ import {
   Upload,
   BarChart3,
   FileSpreadsheet,
-  Brain,
   Handshake,
   FileText,
   Map,
@@ -2035,12 +2034,11 @@ import {
 } from "recharts";
 import toast, { Toaster } from "react-hot-toast";
 import ExportModal from "../components/ExportModal";
-import { adminAPI, userAPI } from "../api";
+import { userAPI } from "../api";
 import * as XLSX from "xlsx";
 import api from "../api";
 
 export default function DashboardHome() {
-  // Default / fallback stats - MOVED TO TOP
   const savedStats = { uploads: 0, storage: "0 MB", reports: 0, charts: 0 };
 
   const [currentUser, setCurrentUser] = useState(null);
@@ -2067,70 +2065,75 @@ export default function DashboardHome() {
   const tableRef = useRef();
   const chartRef = useRef();
 
-  // ✅ FIXED: Moved BEFORE handleFileUpload
+  // ✅ Function to fetch user stats
+  const viewUserDetails = async (id) => {
+    try {
+      console.log("🔍 Fetching dashboard stats for user ID:", id);
+      
+      // ✅ CORRECT: Use /analysis/:userId endpoint
+      const response = await api.get(`/analysis/${id}`);
+      console.log("✅ Stats API response:", response.data);
+      
+      const data = response.data;
+      
+      // ✅ Handle response properly
+      if (!data.success) {
+        console.warn("⚠️ API returned unsuccessful response:", data);
+        return;
+      }
+
+      const statsData = data.stats || {};
+      
+      const newStats = {
+        uploads: statsData.totalUploads || 0,
+        storage: `${statsData.storageUsed || 0} ${statsData.storageUnit || 'MB'}`,
+        reports: statsData.activeReports || 0,
+        charts: statsData.chartsGenerated || 0,
+      };
+      
+      console.log("✅ Setting dashboard stats:", newStats);
+      setStats(newStats);
+    } catch (err) {
+      console.error("❌ Error fetching user details:", err);
+      console.error("Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      // Keep current stats on error
+      console.log("⚠️ Keeping current stats due to error");
+    }
+  };
+
+  // ✅ Function to refresh stats
   const refreshStats = async () => {
     if (currentUser?.id) {
       await viewUserDetails(currentUser.id);
     }
   };
 
-// Function to fetch user stats - WITH DEBUGGING
-const viewUserDetails = async (id) => {
-  try {
-    console.log("🔍 Fetching stats for user ID:", id);
-    
-    const response = await userAPI.getUserStats(id);
-    console.log("✅ Stats API response:", response.data);
-    
-    const data = response.data;
-    
-    // ✅ FIXED: Handle the nested structure correctly
-    const statsData = data.stats || data;
-    
-    const newStats = {
-      uploads: statsData.totalUploads || 0,
-      storage: statsData.storageUsed 
-        ? `${statsData.storageUsed} ${statsData.storageUnit || 'MB'}`
-        : '0 MB',
-      reports: statsData.activeReports || 0,
-      charts: statsData.chartsGenerated || 0,
-    };
-    
-    console.log("✅ Setting stats:", newStats);
-    setStats(newStats);
-  } catch (err) {
-    console.error("❌ Error fetching user details:", err);
-    console.error("Error details:", {
-      message: err.message,
-      response: err.response?.data,
-      status: err.response?.status
-    });
-    
-    // Don't show error toast on every refresh
-    setStats({ uploads: 0, storage: "0 MB", reports: 0, charts: 0 });
-  }
-};
-
   // Get user from localStorage on mount
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (user.id) {
       setCurrentUser(user);
+      console.log("✅ User loaded from localStorage:", user);
     }
   }, []);
   
-  // ✅ POLLING: Auto-refresh stats every 30 seconds
+  // ✅ Auto-refresh stats
   useEffect(() => {
     if (!currentUser?.id) return;
 
     // Initial fetch
     viewUserDetails(currentUser.id);
 
-    // Set up polling interval
+    // Set up polling interval (30 seconds)
     const intervalId = setInterval(() => {
       console.log("🔄 Auto-refreshing dashboard stats...");
       viewUserDetails(currentUser.id);
-    }, 30000); // 30 seconds
+    }, 30000);
 
     // Refresh when window regains focus
     const handleFocus = () => {
@@ -2234,23 +2237,23 @@ const viewUserDetails = async (id) => {
         console.log("📁 Upload ID set:", normalizedUpload.id);
         toast.success("File uploaded successfully!");
         
-        // ✅ Refresh stats from backend after 1 second
-setTimeout(async () => {
-  await refreshStats();
-}, 1000);
+        // ✅ Optimistic UI update (immediate feedback)
+        setStats((prev) => {
+          const currentStorageMB = parseFloat(prev.storage) || 0;
+          const newSizeMB = selected.size / (1024 * 1024);
+          const totalStorageMB = (currentStorageMB + newSizeMB).toFixed(2);
+          
+          return {
+            ...prev,
+            uploads: prev.uploads + 1,
+            storage: `${totalStorageMB} MB`,
+          };
+        });
 
-// ✅ Optimistic UI update (immediate feedback)
-setStats((prev) => {
-  const currentStorageMB = parseFloat(prev.storage) || 0;
-  const newSizeMB = selected.size / (1024 * 1024);
-  const totalStorageMB = (currentStorageMB + newSizeMB).toFixed(2);
-  
-  return {
-    ...prev,
-    uploads: prev.uploads + 1,
-    storage: `${totalStorageMB} MB`,
-  };
-});
+        // ✅ Refresh from backend after 1 second
+        setTimeout(async () => {
+          await refreshStats();
+        }, 1000);
       } else {
         console.warn("⚠️ No upload ID in response:", uploadData);
         setUploadRes(null);
@@ -2439,10 +2442,16 @@ setStats((prev) => {
       yAxisLabel: chartConfig.yAxis,
     });
 
+    // ✅ Update chart count on backend
     if (uploadRes?.id) {
       try {
-        await userAPI.updateChart(uploadRes.id);
-        console.log("✅ Chart count updated");
+        await api.patch(`/analysis/chart/${uploadRes.id}`);
+        console.log("✅ Chart count updated on backend");
+        
+        // Refresh stats to show updated chart count
+        setTimeout(async () => {
+          await refreshStats();
+        }, 500);
       } catch (error) {
         console.error("⚠️ Error updating chart count:", error);
       }
@@ -2450,7 +2459,9 @@ setStats((prev) => {
       console.warn("⚠️ No upload ID available, skipping chart count update");
     }
 
+    // Optimistic UI update
     setStats((prev) => ({ ...prev, charts: prev.charts + 1 }));
+    
     setActiveModal(null);
     toast.success(
       `Chart created successfully with ${chartData.length} data points!`
@@ -2835,85 +2846,87 @@ setStats((prev) => {
         </div>
       </div>
 
-      {activeModal === "chart" && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Create Chart</h3>
-              <button
-                onClick={() => setActiveModal(null)}
-                className="hover:text-gray-700 transition"
-              >
-                <X size={24} />
-              </button>
-            </div>
+     {activeModal === "chart" && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gray-200">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-2xl font-bold text-gray-900">Create Chart</h3>
+        <button
+          onClick={() => setActiveModal(null)}
+          className="hover:text-gray-700 transition"
+        >
+          <X size={24} />
+        </button>
+      </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Chart Type
-                </label>
-                <select
-                  value={chartConfig.type}
-                  onChange={(e) =>
-                    setChartConfig({ ...chartConfig, type: e.target.value })
-                  }
-                  className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
-                >
-                  <option value="bar">Bar Chart</option>
-                  <option value="line">Line Chart</option>
-                  <option value="pie">Pie Chart</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  X-Axis Column (Labels)
-                </label>
-                <select
-                  value={chartConfig.xAxis}
-                  onChange={(e) =>
-                    setChartConfig({ ...chartConfig, xAxis: e.target.value })
-                  }
-                  className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
-                >
-                  <option value="">Select column...</option>
-                  {fileData?.headers.map((header, idx) => (
-                    <option key={idx} value={header}>
-                      {header}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Y-Axis Column (Numeric Values)
-                </label>
-                <select
-                  value={chartConfig.yAxis}
-                  onChange={(e) =>
-                    setChartConfig({ ...chartConfig, yAxis: e.target.value })
-                  }
-                  className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
-                >
-                  <option value="">Select column...</option>
-                  {fileData?.headers.map((header, idx) => (
-                    <option key={idx} value={header}>
-                      {header}
-                    </option>
-                  ))}
-                </select>
-              </div>
-             <button
-            onClick={generateChart}
-            className="w-full bg-gradient-to-r from-pink-600 to-red-600 hover:from-pink-700 hover:to-red-700 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold"
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Chart Type
+          </label>
+          <select
+            value={chartConfig.type}
+            onChange={(e) =>
+              setChartConfig({ ...chartConfig, type: e.target.value })
+            }
+            className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
           >
-            Generate Chart
-          </button>
+            <option value="bar">Bar Chart</option>
+            <option value="line">Line Chart</option>
+            <option value="pie">Pie Chart</option>
+          </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            X-Axis Column (Labels)
+          </label>
+          <select
+            value={chartConfig.xAxis}
+            onChange={(e) =>
+              setChartConfig({ ...chartConfig, xAxis: e.target.value })
+            }
+            className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
+          >
+            <option value="">Select column...</option>
+            {fileData?.headers.map((header, idx) => (
+              <option key={idx} value={header}>
+                {header}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Y-Axis Column (Numeric Values)
+          </label>
+          <select
+            value={chartConfig.yAxis}
+            onChange={(e) =>
+              setChartConfig({ ...chartConfig, yAxis: e.target.value })
+            }
+            className="w-full p-3 rounded-lg border-2 border-gray-300 focus:border-pink-600 focus:outline-none bg-white text-gray-900"
+          >
+            <option value="">Select column...</option>
+            {fileData?.headers.map((header, idx) => (
+              <option key={idx} value={header}>
+                {header}
+              </option>
+            ))}
+          </select>
+        </div>
+        
+        <button
+          onClick={generateChart}
+          className="w-full bg-gradient-to-r from-pink-600 to-red-600 hover:from-pink-700 hover:to-red-700 text-white px-6 py-3 rounded-lg shadow-md hover:shadow-lg transition-all font-semibold"
+        >
+          Generate Chart
+        </button>
       </div>
     </div>
-  )}
+  </div>
+)}
 
   {activeModal === "mapping" && (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">

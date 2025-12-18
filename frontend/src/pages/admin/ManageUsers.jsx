@@ -280,14 +280,21 @@ export default function ManageUsers() {
 
     // 🔹 Handle user details view
     const viewUserDetails = async (id) => {
-    try {
-        const response = await adminAPI.getUserStats(id);
-        setSelectedUserStats(response.data); // ✅ contains { user, stats }
-    } catch (err) {
-        console.error("Error fetching user details:", err);
-        alert("Failed to fetch user details");
-    }
-    };
+  try {
+    console.log('🔍 Fetching user details for:', id);
+    setSelectedUserStats({ user: null, stats: null }); // Show loading
+    
+    const response = await adminAPI.getUserStats(id);
+    
+    console.log('✅ User details response:', response.data);
+    
+    setSelectedUserStats(response.data);
+  } catch (err) {
+    console.error('❌ Error fetching user details:', err);
+    alert('Failed to fetch user details: ' + (err.response?.data?.message || err.message));
+    setSelectedUserStats(null);
+  }
+};
 
     const filteredUsers = users.filter((user) => {
         const matchesSearch =
@@ -661,34 +668,112 @@ export default function ManageUsers() {
           </div>
         )}
 
-       {/* View users details */}
-       {selectedUserStats && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white p-6 rounded-2xl shadow-xl w-96">
-            <h2 className="text-xl font-bold mb-4">
-                Stats for {selectedUserStats.user.name}
-            </h2>
+{/* View users details - FIXED VERSION */}
+{selectedUserStats && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white p-6 rounded-2xl shadow-xl w-96 max-w-full mx-4">
+      <h2 className="text-xl font-bold mb-4 text-gray-800">
+        User Statistics
+      </h2>
 
-            <ul className="space-y-2 text-gray-700">
-                <li><strong>Email:</strong> {selectedUserStats.user.email}</li>
-                <li><strong>Role:</strong> {selectedUserStats.user.role}</li>
-                <li><strong>Total Uploads:</strong> {selectedUserStats.stats.totalUploads}</li>
-                <li><strong>Files Processed:</strong> {selectedUserStats.stats.filesProcessed}</li>
-                <li><strong>Storage Used:</strong> {selectedUserStats.stats.storageUsed}%</li>
-                <li><strong>Active Reports:</strong> {selectedUserStats.stats.activeReports}</li>
-                <li><strong>Charts Generated:</strong> {selectedUserStats.stats.chartsGenerated}</li>
-            </ul>
-
-            <button
-                onClick={() => setSelectedUserStats(null)}
-                className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-                Close
-            </button>
+      {/* Check if user data exists before rendering */}
+      {selectedUserStats.user ? (
+        <>
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg mb-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                {selectedUserStats.user.name
+                  ? selectedUserStats.user.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)
+                  : "??"}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {selectedUserStats.user.name || "N/A"}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {selectedUserStats.user.email || "N/A"}
+                </p>
+              </div>
             </div>
-        </div>
-        )}
+            <div className="flex items-center gap-2 mt-2">
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold capitalize">
+                {selectedUserStats.user.role || "user"}
+              </span>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  selectedUserStats.user.status === "Active"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {selectedUserStats.user.status || "Unknown"}
+              </span>
+            </div>
+          </div>
 
+          <div className="space-y-3">
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-gray-600 font-medium">📊 Total Uploads</span>
+              <span className="text-gray-900 font-bold">
+                {selectedUserStats.stats?.totalUploads || 0}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-gray-600 font-medium">📁 Files Processed</span>
+              <span className="text-gray-900 font-bold">
+                {selectedUserStats.stats?.filesProcessed || 0}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-gray-600 font-medium">💾 Storage Used</span>
+              <div className="text-right">
+                <span className="text-gray-900 font-bold">
+                  {selectedUserStats.stats?.storageUsedMB || 0} MB
+                </span>
+                {selectedUserStats.stats?.storageUsed > 0 && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({selectedUserStats.stats?.storageUsed}%)
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b">
+              <span className="text-gray-600 font-medium">📈 Active Reports</span>
+              <span className="text-gray-900 font-bold">
+                {selectedUserStats.stats?.activeReports || 0}
+              </span>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-gray-600 font-medium">📉 Charts Generated</span>
+              <span className="text-gray-900 font-bold">
+                {selectedUserStats.stats?.chartsGenerated || 0}
+              </span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading user details...</p>
+        </div>
+      )}
+
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => setSelectedUserStats(null)}
+          className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

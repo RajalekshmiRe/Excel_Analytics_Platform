@@ -5,20 +5,20 @@ import { logOperation } from "../middleware/logOperation.js";
 
 const router = express.Router();
 
+// ✅ IMPORTANT: More specific routes MUST come BEFORE dynamic routes
+// Analytics dashboard endpoint - MUST be before /:userId
+router.get('/analytics', protect, getAnalytics);
+
 // Existing chart endpoint
 router.post('/chart', protect, chartData);
 
-// update chart counts
-router.patch('/update-chart/:id', protect, logOperation("GENERATE_CHART"), chartCountUpdate);
+// Update chart counts
+router.patch('/chart/:id', protect, logOperation("GENERATE_CHART"), chartCountUpdate);
 
-// update reports counts
-router.patch('/update-report/:id', protect, logOperation("GENERATE_REPORT"), reportCountUpdate);
+// Update reports counts
+router.patch('/report/:id', protect, logOperation("GENERATE_REPORT"), reportCountUpdate);
 
-// NEW: Analytics dashboard endpoint
-router.get('/analytics', protect, getAnalytics);
-
-// User details
-router.get("/stats/:userId", viewUserDetails);
-
+// ✅ User can access their own stats - MUST be LAST (dynamic route)
+router.get('/:userId', protect, viewUserDetails);
 
 export default router;

@@ -43,19 +43,102 @@ export const getAllUsers = async (req, res) => {
 };
 
 // Get single user details
+
+// Replace the entire getUserById function in adminController.js with this:
+
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const { id } = req.params;
+    console.log('📊 Fetching user details for:', id);
+
+    // Find user (exclude password)
+    const user = await User.findById(id).select('-password');
     
     if (!user) {
+      console.log('❌ User not found:', id);
       return res.status(404).json({ 
-        success: false,
-        message: "User not found" 
+        success: false, 
+        message: 'User not found' 
       });
     }
 
-    const uploads = await Upload.find({ userId: user._id });
+    console.log('✅ User found:', user.name);
 
+    // Get uploads count
+    const totalUploads = await Upload.countDocuments({ userId: id });
+    console.log('📊 Total uploads found:', totalUploads);
+
+    // Get all uploads to calculate storage
+    const userUploads = await Upload.find({ userId: id });
+    
+    // Calculate total storage (try multiple field names)
+    const totalStorageBytes = userUploads.reduce((sum, upload) => {
+      const uploadSize = upload.size || upload.fileSize || upload.bytes || 0;
+      return sum + uploadSize;
+    }, 0);
+    
+    console.log('💾 Total storage bytes:', totalStorageBytes);
+    
+    // Calculate storage used with better display
+    let storageUsedPercentage = 0;
+    let storageUsedMB = 0;
+    
+    if (totalStorageBytes > 0) {
+      storageUsedMB = parseFloat((totalStorageBytes / (1024 * 1024)).toFixed(2)); // Convert to MB
+      
+      // Use 100MB as reference for percentage (adjust as needed)
+      const storageLimitMB = 100;
+      storageUsedPercentage = Math.min(
+        Math.round((storageUsedMB / storageLimitMB) * 100), 
+        100
+      );
+      
+      console.log('💾 Storage calculation:', {
+        bytes: totalStorageBytes,
+        MB: storageUsedMB,
+        percentage: storageUsedPercentage,
+        limit: `${storageLimitMB}MB`
+      });
+    } else if (totalUploads > 0) {
+      // Estimate if no size data available
+      const estimatedBytes = totalUploads * 350 * 1024; // 350KB average per file
+      storageUsedMB = parseFloat((estimatedBytes / (1024 * 1024)).toFixed(2));
+      const storageLimitMB = 100;
+      storageUsedPercentage = Math.min(
+        Math.round((storageUsedMB / storageLimitMB) * 100), 
+        100
+      );
+      console.log('⚠️ No size data found, using estimation:', storageUsedMB, 'MB');
+    }
+
+    // Get report and chart counts
+    const reportCount = userUploads.reduce((sum, upload) => 
+      sum + (upload.reportCount || 0), 0
+    );
+    
+    const chartCount = userUploads.reduce((sum, upload) => 
+      sum + (upload.chartCount || 0), 0
+    );
+
+    console.log('📊 Final stats:', {
+      uploads: totalUploads,
+      storageMB: storageUsedMB,
+      storagePercent: storageUsedPercentage,
+      reports: reportCount,
+      charts: chartCount
+    });
+
+    // Create stats object
+    const stats = {
+      totalUploads: totalUploads,
+      filesProcessed: totalUploads,
+      storageUsed: storageUsedPercentage,
+      storageUsedMB: storageUsedMB,
+      activeReports: reportCount,
+      chartsGenerated: chartCount
+    };
+
+    // Return formatted response
     res.json({
       success: true,
       user: {
@@ -63,15 +146,16 @@ export const getUserById = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        createdAt: user.createdAt,
-        uploads: uploads
-      }
+        status: user.status
+      },
+      stats
     });
+
   } catch (error) {
-    console.error("Get user by ID error:", error);
+    console.error('❌ Error fetching user by ID:', error);
     res.status(500).json({ 
-      success: false,
-      message: "Failed to fetch user", 
+      success: false, 
+      message: 'Server error',
       error: error.message 
     });
   }
