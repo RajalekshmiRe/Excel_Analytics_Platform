@@ -273,6 +273,7 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
 
     try {
       const baseFileName = fileName?.replace(/\.[^/.]+$/, '') || 'export';
+      let exported = false;
 
       switch (type) {
         case 'png':
@@ -281,6 +282,7 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
           }
           await exportChartToPNG(chartRef, baseFileName);
           setExportSuccess('Chart exported as PNG successfully!');
+          exported = true;
           break;
 
         case 'pdf':
@@ -289,6 +291,7 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
           }
           await exportChartToPDF(chartRef, baseFileName);
           setExportSuccess('Chart exported as PDF successfully!');
+          exported = true;
           break;
 
         case 'csv':
@@ -297,6 +300,7 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
           }
           exportToCSV(data, baseFileName);
           setExportSuccess('Data exported as CSV successfully!');
+          exported = true;
           break;
 
         case 'excel':
@@ -305,6 +309,7 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
           }
           exportToExcel(data, baseFileName);
           setExportSuccess('Data exported as Excel successfully!');
+          exported = true;
           break;
 
         case 'json':
@@ -313,22 +318,24 @@ const ExportModal = ({ isOpen, onClose, data, fileName, chartRef, uploadData }) 
           }
           exportToJSON(data, baseFileName);
           setExportSuccess('Data exported as JSON successfully!');
+          exported = true;
           break;
 
         default:
           throw new Error('Unknown export type');
       }
 
-      // Update report count on backend if upload ID exists
-      if (uploadData?.id) {
+      // ✅ UPDATE REPORT COUNT ON BACKEND (FIXED ENDPOINT)
+      if (exported && uploadData?.id) {
         try {
-          await api.patch(`/analysis/update-report/${uploadData.id}`);
-          console.log("✅ Report count updated for upload:", uploadData.id);
+          console.log("📊 Updating report count for upload:", uploadData.id);
+          await api.patch(`/analysis/report/${uploadData.id}`);
+          console.log("✅ Report count updated successfully");
         } catch (error) {
           console.error("⚠️ Error updating report count:", error);
           // Don't fail the export if report update fails
         }
-      } else {
+      } else if (exported && !uploadData?.id) {
         console.warn("⚠️ No upload ID available, skipping report count update");
       }
 
