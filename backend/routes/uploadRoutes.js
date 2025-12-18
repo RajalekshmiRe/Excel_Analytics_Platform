@@ -1163,11 +1163,10 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
 
     // ✅ Get file URL based on environment
     const fileUrl = isCloudStorage() ? req.file.path : req.file.path;
-    const cloudinaryPublicId = isCloudStorage() ? req.file.filename : null;
-
+    const cloudinaryPublicId = isCloudStorage() ? req.file.public_id : null;
     const newUpload = new Upload({
       userId: userId,
-      filename: req.file.filename || req.file.originalname,
+filename: req.file.originalname,
       originalName: req.file.originalname,
       path: fileUrl,
       cloudinaryPublicId: cloudinaryPublicId,  // Store for deletion later
