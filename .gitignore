@@ -12,6 +12,12 @@ build/
 .vite/
 */.vite/
 
+# Local uploads folder
+uploads/
+*.csv
+*.xlsx
+*.xls
+
 # Environment variables
 .env
 .env.local

@@ -761,51 +761,399 @@
 
 
 
+// import express from 'express';
+// import multer from 'multer';
+// import path from 'path';
+// import fs from 'fs';
+// import { protect } from '../middleware/authMiddleware.js';
+// import Upload from '../models/Upload.js';
+// import { logOperation } from '../middleware/logOperation.js';
+
+// const router = express.Router();
+
+// // Configure multer for file uploads
+// const storage = multer.diskStorage({
+//   destination: (req, file, cb) => {
+//     const uploadDir = 'uploads/';
+//     if (!fs.existsSync(uploadDir)) {
+//       fs.mkdirSync(uploadDir, { recursive: true });
+//     }
+//     cb(null, uploadDir);
+//   },
+//   filename: (req, file, cb) => {
+//     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+//   }
+// });
+
+// const upload = multer({
+//   storage: storage,
+//   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+//   fileFilter: (req, file, cb) => {
+//     const allowedTypes = /xlsx|xls|csv/;
+//     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+//     const mimetype = allowedTypes.test(file.mimetype);
+
+//     if (mimetype && extname) {
+//       return cb(null, true);
+//     } else {
+//       cb(new Error('Only Excel and CSV files are allowed!'));
+//     }
+//   }
+// });
+
+// /* ============================================================
+//    ✅ POST /api/uploads - Upload a file
+// ============================================================ */
+// router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({ message: 'No file uploaded' });
+//     }
+
+//     const userId = req.user._id || req.user.id;
+
+//     const newUpload = new Upload({
+//       userId: userId,
+//       filename: req.file.filename,
+//       originalName: req.file.originalname,
+//       path: req.file.path,
+//       size: req.file.size,
+//       mimetype: req.file.mimetype,
+//       status: 'processed',
+//       chartCount: 0,
+//       reportCount: 0
+//     });
+
+//     await newUpload.save();
+
+//     console.log('✅ File uploaded successfully:', {
+//       id: newUpload._id,
+//       filename: newUpload.originalName,
+//       userId: userId
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'File uploaded successfully',
+//       file: newUpload
+//     });
+//   } catch (error) {
+//     console.error('❌ Upload error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'File upload failed',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads - Get ALL user uploads
+// ============================================================ */
+// router.get('/', protect, async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     console.log(`📂 Fetching ALL uploads for user: ${userId}`);
+
+//     const uploads = await Upload.find({ userId })
+//       .sort({ createdAt: -1 })
+//       .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+
+//     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
+
+//     const formattedUploads = uploads.map(upload => ({
+//       _id: upload._id,
+//       id: upload._id,
+//       filename: upload.originalName,
+//       originalname: upload.originalName,
+//       originalName: upload.originalName,
+//       size: upload.size,
+//       filesize: upload.size,
+//       status: upload.status || 'Ready',
+//       createdAt: upload.createdAt,
+//       uploadedAt: upload.createdAt,
+//       chartCount: upload.chartCount || 0,
+//       reportCount: upload.reportCount || 0,
+//       mimetype: upload.mimetype,
+//       path: upload.path
+//     }));
+
+//     res.json({ uploads: formattedUploads });
+//   } catch (error) {
+//     console.error('❌ Error fetching uploads:', error);
+//     res.status(500).json({
+//       message: 'Failed to load uploads',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads/history - Get user's upload history
+// ============================================================ */
+// router.get('/history', protect, async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     console.log(`📂 Fetching upload history for user: ${userId}`);
+
+//     const uploads = await Upload.find({ userId })
+//       .sort({ createdAt: -1 })
+//       .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+
+//     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
+
+//     const formattedUploads = uploads.map(upload => {
+//       let fileSize = upload.size || 0;
+      
+//       if (fileSize === 0 && upload.path && fs.existsSync(upload.path)) {
+//         try {
+//           const stats = fs.statSync(upload.path);
+//           fileSize = stats.size;
+//         } catch (err) {
+//           console.warn(`⚠️ Could not read file size for ${upload.path}`);
+//         }
+//       }
+
+//       return {
+//         _id: upload._id,
+//         id: upload._id,
+//         filename: upload.originalName,
+//         originalname: upload.originalName,
+//         originalName: upload.originalName,
+//         size: fileSize,
+//         filesize: fileSize,
+//         status: upload.status || 'Ready',
+//         createdAt: upload.createdAt,
+//         uploadedAt: upload.createdAt,
+//         chartCount: upload.chartCount || 0,
+//         reportCount: upload.reportCount || 0,
+//         mimetype: upload.mimetype,
+//         path: upload.path
+//       };
+//     });
+
+//     res.json(formattedUploads);
+//   } catch (error) {
+//     console.error('❌ Error fetching upload history:', error);
+//     res.status(500).json({
+//       message: 'Failed to load upload history',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads/:id/download - Download file
+//    ⚠️ MUST BE BEFORE /:id ROUTE!
+//    🔧 FIXED: Returns proper 404 with message when file missing
+   
+//    📝 CLOUD STORAGE NOTES (for production):
+//    To use AWS S3/Google Cloud/Azure instead of local storage:
+//    1. npm install @aws-sdk/client-s3 (or equivalent)
+//    2. Replace fs.existsSync with S3 getObject check
+//    3. Replace fs.createReadStream with S3 stream
+//    Example S3 code is commented below
+// ============================================================ */
+// router.get('/:id/download', protect, async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     console.log(`📥 Download request: ${req.params.id} by user ${userId}`);
+    
+//     const upload = await Upload.findOne({
+//       _id: req.params.id,
+//       userId: userId
+//     });
+
+//     if (!upload) {
+//       console.log('❌ Upload record not found or access denied');
+//       return res.status(404).json({ 
+//         success: false,
+//         message: 'File not found',
+//         detail: 'Upload record does not exist or you do not have access'
+//       });
+//     }
+
+//     // ✅ FIX: Check if physical file exists BEFORE trying to stream
+//     if (!fs.existsSync(upload.path)) {
+//       console.log('❌ Physical file not found:', upload.path);
+//       console.log('⚠️ File was deleted from server (ephemeral storage cleanup)');
+      
+//       return res.status(404).json({ 
+//         success: false,
+//         message: 'File no longer available',
+//         detail: 'File has been removed from server storage. Re-upload if needed.',
+//         fileInfo: {
+//           originalName: upload.originalName,
+//           uploadDate: upload.createdAt,
+//           size: upload.size
+//         }
+//       });
+//     }
+
+//     console.log(`✅ Sending file: ${upload.originalName}`);
+
+//     // Set headers for download
+//     res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
+//     res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+//     res.setHeader('Content-Length', upload.size);
+    
+//     // Stream the file
+//     const fileStream = fs.createReadStream(upload.path);
+    
+//     fileStream.on('error', (error) => {
+//       console.error('❌ Stream error:', error);
+//       if (!res.headersSent) {
+//         res.status(500).json({ 
+//           success: false,
+//           message: 'Error streaming file' 
+//         });
+//       }
+//     });
+    
+//     fileStream.pipe(res);
+    
+//     /* 
+//     // 🚀 CLOUD STORAGE VERSION (AWS S3 Example)
+//     // Uncomment and configure for production:
+    
+//     const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+    
+//     const s3Client = new S3Client({
+//       region: process.env.AWS_REGION,
+//       credentials: {
+//         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+//       }
+//     });
+    
+//     try {
+//       const command = new GetObjectCommand({
+//         Bucket: process.env.AWS_S3_BUCKET,
+//         Key: upload.path // Store S3 key in database
+//       });
+      
+//       const { Body } = await s3Client.send(command);
+      
+//       res.setHeader('Content-Type', upload.mimetype);
+//       res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+      
+//       Body.pipe(res);
+//     } catch (s3Error) {
+//       if (s3Error.Code === 'NoSuchKey') {
+//         return res.status(404).json({ message: 'File not found in storage' });
+//       }
+//       throw s3Error;
+//     }
+//     */
+    
+//   } catch (error) {
+//     console.error('❌ Download error:', error);
+    
+//     // Don't send error details if headers already sent
+//     if (!res.headersSent) {
+//       res.status(500).json({
+//         success: false,
+//         message: 'Error downloading file',
+//         error: error.message
+//       });
+//     }
+//   }
+// });
+
+// /* ============================================================
+//    ✅ GET /api/uploads/:id - Get single upload details
+//    ⚠️ MUST BE AFTER /:id/download ROUTE!
+// ============================================================ */
+// router.get('/:id', protect, async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     const upload = await Upload.findOne({
+//       _id: req.params.id,
+//       userId: userId
+//     });
+
+//     if (!upload) {
+//       return res.status(404).json({ message: 'File not found' });
+//     }
+
+//     res.json(upload);
+//   } catch (error) {
+//     console.error('Error fetching upload:', error);
+//     res.status(500).json({
+//       message: 'Error fetching file details',
+//       error: error.message
+//     });
+//   }
+// });
+
+// /* ============================================================
+//    ✅ DELETE /api/uploads/:id - Delete a file
+// ============================================================ */
+// router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+    
+//     const upload = await Upload.findOne({
+//       _id: req.params.id,
+//       userId: userId
+//     });
+
+//     if (!upload) {
+//       return res.status(404).json({ message: 'File not found' });
+//     }
+
+//     // Delete physical file (only if it exists)
+//     if (fs.existsSync(upload.path)) {
+//       fs.unlinkSync(upload.path);
+//       console.log('✅ Physical file deleted:', upload.path);
+//     } else {
+//       console.log('⚠️ Physical file already missing:', upload.path);
+//     }
+
+//     // Delete database record
+//     await Upload.findByIdAndDelete(req.params.id);
+
+//     console.log('✅ File deleted successfully:', upload.filename);
+
+//     res.json({
+//       success: true,
+//       message: 'File deleted successfully'
+//     });
+//   } catch (error) {
+//     console.error('❌ Delete error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to delete file',
+//       error: error.message
+//     });
+//   }
+// });
+
+// export default router;
+
+
+
+
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import { protect } from '../middleware/authMiddleware.js';
 import Upload from '../models/Upload.js';
 import { logOperation } from '../middleware/logOperation.js';
+import { uploadExcel, deleteFromCloudinary, getPublicIdFromUrl, isCloudStorage } from '../config/cloudinary.js';
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = 'uploads/';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /xlsx|xls|csv/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only Excel and CSV files are allowed!'));
-    }
-  }
-});
-
 /* ============================================================
-   ✅ POST /api/uploads - Upload a file
+   ✅ POST /api/uploads - Upload Excel/CSV file
+   🆕 Now supports BOTH local (dev) and Cloudinary (prod)
 ============================================================ */
-router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), async (req, res) => {
+router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -813,11 +1161,16 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
 
     const userId = req.user._id || req.user.id;
 
+    // ✅ Get file URL based on environment
+    const fileUrl = isCloudStorage() ? req.file.path : req.file.path;
+    const cloudinaryPublicId = isCloudStorage() ? req.file.filename : null;
+
     const newUpload = new Upload({
       userId: userId,
-      filename: req.file.filename,
+      filename: req.file.filename || req.file.originalname,
       originalName: req.file.originalname,
-      path: req.file.path,
+      path: fileUrl,
+      cloudinaryPublicId: cloudinaryPublicId,  // Store for deletion later
       size: req.file.size,
       mimetype: req.file.mimetype,
       status: 'processed',
@@ -830,6 +1183,7 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), upload.single('file'), as
     console.log('✅ File uploaded successfully:', {
       id: newUpload._id,
       filename: newUpload.originalName,
+      storage: isCloudStorage() ? 'Cloudinary' : 'Local',
       userId: userId
     });
 
@@ -891,7 +1245,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 /* ============================================================
-   ✅ GET /api/uploads/history - Get user's upload history
+   ✅ GET /api/uploads/history - Get upload history
 ============================================================ */
 router.get('/history', protect, async (req, res) => {
   try {
@@ -903,12 +1257,13 @@ router.get('/history', protect, async (req, res) => {
       .sort({ createdAt: -1 })
       .select('filename originalName size mimetype status createdAt chartCount reportCount path');
 
-    console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
+    console.log(`✅ Found ${uploads.length} uploads`);
 
     const formattedUploads = uploads.map(upload => {
       let fileSize = upload.size || 0;
       
-      if (fileSize === 0 && upload.path && fs.existsSync(upload.path)) {
+      // Only check file size for local storage
+      if (!isCloudStorage() && fileSize === 0 && upload.path && fs.existsSync(upload.path)) {
         try {
           const stats = fs.statSync(upload.path);
           fileSize = stats.size;
@@ -947,15 +1302,7 @@ router.get('/history', protect, async (req, res) => {
 
 /* ============================================================
    ✅ GET /api/uploads/:id/download - Download file
-   ⚠️ MUST BE BEFORE /:id ROUTE!
-   🔧 FIXED: Returns proper 404 with message when file missing
-   
-   📝 CLOUD STORAGE NOTES (for production):
-   To use AWS S3/Google Cloud/Azure instead of local storage:
-   1. npm install @aws-sdk/client-s3 (or equivalent)
-   2. Replace fs.existsSync with S3 getObject check
-   3. Replace fs.createReadStream with S3 stream
-   Example S3 code is commented below
+   🆕 Now works with BOTH local and Cloudinary storage
 ============================================================ */
 router.get('/:id/download', protect, async (req, res) => {
   try {
@@ -972,36 +1319,31 @@ router.get('/:id/download', protect, async (req, res) => {
       console.log('❌ Upload record not found or access denied');
       return res.status(404).json({ 
         success: false,
-        message: 'File not found',
-        detail: 'Upload record does not exist or you do not have access'
+        message: 'File not found'
       });
     }
 
-    // ✅ FIX: Check if physical file exists BEFORE trying to stream
+    // ✅ For Cloudinary: Redirect to Cloudinary URL
+    if (isCloudStorage()) {
+      console.log('✅ Redirecting to Cloudinary URL');
+      return res.redirect(upload.path);
+    }
+
+    // ✅ For Local: Stream the file
     if (!fs.existsSync(upload.path)) {
       console.log('❌ Physical file not found:', upload.path);
-      console.log('⚠️ File was deleted from server (ephemeral storage cleanup)');
-      
       return res.status(404).json({ 
         success: false,
-        message: 'File no longer available',
-        detail: 'File has been removed from server storage. Re-upload if needed.',
-        fileInfo: {
-          originalName: upload.originalName,
-          uploadDate: upload.createdAt,
-          size: upload.size
-        }
+        message: 'File no longer available'
       });
     }
 
     console.log(`✅ Sending file: ${upload.originalName}`);
 
-    // Set headers for download
     res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
     res.setHeader('Content-Length', upload.size);
     
-    // Stream the file
     const fileStream = fs.createReadStream(upload.path);
     
     fileStream.on('error', (error) => {
@@ -1016,44 +1358,9 @@ router.get('/:id/download', protect, async (req, res) => {
     
     fileStream.pipe(res);
     
-    /* 
-    // 🚀 CLOUD STORAGE VERSION (AWS S3 Example)
-    // Uncomment and configure for production:
-    
-    const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-    
-    const s3Client = new S3Client({
-      region: process.env.AWS_REGION,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-      }
-    });
-    
-    try {
-      const command = new GetObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET,
-        Key: upload.path // Store S3 key in database
-      });
-      
-      const { Body } = await s3Client.send(command);
-      
-      res.setHeader('Content-Type', upload.mimetype);
-      res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
-      
-      Body.pipe(res);
-    } catch (s3Error) {
-      if (s3Error.Code === 'NoSuchKey') {
-        return res.status(404).json({ message: 'File not found in storage' });
-      }
-      throw s3Error;
-    }
-    */
-    
   } catch (error) {
     console.error('❌ Download error:', error);
     
-    // Don't send error details if headers already sent
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
@@ -1066,7 +1373,6 @@ router.get('/:id/download', protect, async (req, res) => {
 
 /* ============================================================
    ✅ GET /api/uploads/:id - Get single upload details
-   ⚠️ MUST BE AFTER /:id/download ROUTE!
 ============================================================ */
 router.get('/:id', protect, async (req, res) => {
   try {
@@ -1092,7 +1398,8 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 /* ============================================================
-   ✅ DELETE /api/uploads/:id - Delete a file
+   ✅ DELETE /api/uploads/:id - Delete file
+   🆕 Now deletes from BOTH local and Cloudinary
 ============================================================ */
 router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => {
   try {
@@ -1107,15 +1414,23 @@ router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => 
       return res.status(404).json({ message: 'File not found' });
     }
 
-    // Delete physical file (only if it exists)
-    if (fs.existsSync(upload.path)) {
-      fs.unlinkSync(upload.path);
-      console.log('✅ Physical file deleted:', upload.path);
-    } else {
-      console.log('⚠️ Physical file already missing:', upload.path);
+    // ✅ Delete from Cloudinary if in production
+    if (isCloudStorage() && upload.cloudinaryPublicId) {
+      try {
+        await deleteFromCloudinary(upload.cloudinaryPublicId);
+        console.log('✅ File deleted from Cloudinary');
+      } catch (err) {
+        console.error('⚠️ Could not delete from Cloudinary:', err.message);
+      }
     }
 
-    // Delete database record
+    // ✅ Delete from local storage if in development
+    if (!isCloudStorage() && fs.existsSync(upload.path)) {
+      fs.unlinkSync(upload.path);
+      console.log('✅ Physical file deleted:', upload.path);
+    }
+
+    // ✅ Delete database record
     await Upload.findByIdAndDelete(req.params.id);
 
     console.log('✅ File deleted successfully:', upload.filename);

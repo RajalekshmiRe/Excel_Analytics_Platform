@@ -5,9 +5,12 @@ import Upload from "../models/Upload.js"; // ✅ Use your Upload.js model
 import fs from "fs";
 import { protect } from "../middleware/authMiddleware.js";
 import { logOperation } from "../middleware/logOperation.js";
+import { uploadAvatar } from '../config/cloudinary.js';
+import { updateAvatar } from '../controllers/userController.js';
+
 
 const router = express.Router();
-
+router.put('/avatar', protect, uploadAvatar.single('avatar'), updateAvatar);
 // Single file upload route
 router.post("/", upload.single("file"), logOperation("FILE_UPLOAD"), (req, res) => {
   if (!req.file) {
