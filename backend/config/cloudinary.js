@@ -147,32 +147,6 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-let isConfigured = false;
-
-// Configure Cloudinary only when explicitly called
-const configureCloudinary = () => {
-  if (isConfigured) return;
-
-  const hasCredentials = !!(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-  );
-
-  if (hasCredentials) {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET
-    });
-    console.log('✅ Cloudinary configured:', process.env.CLOUDINARY_CLOUD_NAME);
-  } else {
-    console.log('⚠️ Cloudinary credentials not found - using local storage');
-  }
-
-  isConfigured = true;
-};
-
 // Check if Cloudinary credentials exist
 const hasCloudinaryCredentials = () => !!(
   process.env.CLOUDINARY_CLOUD_NAME &&
@@ -180,40 +154,50 @@ const hasCloudinaryCredentials = () => !!(
   process.env.CLOUDINARY_API_SECRET
 );
 
+// ✅ FIXED: Configure Cloudinary immediately if credentials exist
+if (hasCloudinaryCredentials()) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  console.log('✅ Cloudinary configured immediately:', process.env.CLOUDINARY_CLOUD_NAME);
+} else {
+  console.log('⚠️ Cloudinary credentials not found - using local storage');
+}
+
 // Local uploads folder for development
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ✅ FIXED: Cloudinary storage with proper URL return
-const getCloudinaryStorage = () => {
-  if (!hasCloudinaryCredentials()) return null;
+// ✅ FIXED: Create storage instances ONCE at module load
+let cloudinaryStorage = null;
+let localStorage = null;
 
-  return new CloudinaryStorage({
+if (hasCloudinaryCredentials()) {
+  console.log('📦 Creating Cloudinary storage instance...');
+  cloudinaryStorage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: async (req, file) => {
-      // ✅ This ensures Cloudinary returns the full URL in req.file.path
-      return {
-        folder: 'excel-analytics-platform',
-        resource_type: 'raw',
-        use_filename: true,
-        unique_filename: true,
-        public_id: `file-${Date.now()}-${Math.round(Math.random() * 1e9)}`,
-        // ✅ These are critical for getting the full URL
-        format: path.extname(file.originalname).substring(1),
-        allowed_formats: ['csv', 'xls', 'xlsx']
-      };
+    params: {
+      folder: 'excel-analytics-platform',
+      resource_type: 'raw',
+      allowed_formats: ['csv', 'xls', 'xlsx'],
+      use_filename: true,
+      unique_filename: true
     }
   });
-};
-
-// Local disk storage fallback
-const excelLocalStorage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, uploadDir),
-  filename: (_, file, cb) =>
-    cb(null, 'file-' + Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname))
-});
+  console.log('✅ Cloudinary storage created');
+} else {
+  console.log('📦 Creating local disk storage instance...');
+  localStorage = multer.diskStorage({
+    destination: (_, __, cb) => cb(null, uploadDir),
+    filename: (_, file, cb) =>
+      cb(null, 'file-' + Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname))
+  });
+  console.log('✅ Local storage created');
+}
 
 // File filter for Excel/CSV
 const excelFileFilter = (_, file, cb) => {
@@ -221,43 +205,24 @@ const excelFileFilter = (_, file, cb) => {
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/csv',
-    'application/octet-stream' // ✅ Added for better compatibility
+    'application/octet-stream'
   ];
   const ext = /xlsx|xls|csv/.test(path.extname(file.originalname).toLowerCase());
   cb(null, allowed.includes(file.mimetype) || ext);
 };
 
-// ✅ FIXED: Multer upload factory with better error handling
-export const getUploadExcel = () => {
-  configureCloudinary();
-  
-  let storage;
-  if (hasCloudinaryCredentials()) {
-    console.log('📦 Using Cloudinary storage');
-    storage = getCloudinaryStorage();
-  } else {
-    console.log('📦 Using local disk storage');
-    storage = excelLocalStorage;
-  }
-
-  return multer({ 
-    storage, 
-    fileFilter: excelFileFilter, 
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB
-  });
-};
-
-// Backward compatible wrapper
-export const uploadExcel = {
-  single: (...args) => getUploadExcel().single(...args),
-  array: (...args) => getUploadExcel().array(...args),
-  fields: (...args) => getUploadExcel().fields(...args)
-};
+// ✅ FIXED: Use pre-created storage instances
+export const uploadExcel = multer({
+  storage: cloudinaryStorage || localStorage,
+  fileFilter: excelFileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
 
 // Direct Cloudinary upload
 export const uploadCloudinary = async (filePathOrBuffer, options = {}) => {
-  configureCloudinary();
-  if (!hasCloudinaryCredentials()) throw new Error('Cloudinary credentials not configured');
+  if (!hasCloudinaryCredentials()) {
+    throw new Error('Cloudinary credentials not configured');
+  }
 
   return cloudinary.uploader.upload(filePathOrBuffer, {
     resource_type: 'raw',
@@ -269,7 +234,6 @@ export const uploadCloudinary = async (filePathOrBuffer, options = {}) => {
 
 // Delete helper
 export const deleteFromCloudinary = async (publicId) => {
-  configureCloudinary();
   if (!hasCloudinaryCredentials()) return { result: 'skipped' };
   return cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
 };
@@ -288,21 +252,19 @@ export const getPublicIdFromUrl = (url) => {
 };
 
 // Check if using cloud storage
-export const isCloudStorage = () => {
-  configureCloudinary();
-  const hasCredentials = hasCloudinaryCredentials();
-  return hasCredentials;
-};
+export const isCloudStorage = () => hasCloudinaryCredentials();
 
-// Exports
+// Export cloudinary instance
 export { cloudinary };
 
+// Initialization function (for logging only, config already done above)
 export const initializeCloudinary = () => {
-  configureCloudinary();
-  console.log('\n📦 Cloudinary Configuration:');
+  console.log('\n📦 Cloudinary Status Check:');
   console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
   console.log('  - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ Not set');
+  console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Not set');
+  console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Not set');
   console.log('  - Credentials:', hasCloudinaryCredentials() ? '✅ Available' : '❌ Missing');
-  console.log('  - Storage Mode:', hasCloudinaryCredentials() ? 'Cloudinary' : 'Local Disk');
+  console.log('  - Storage Mode:', hasCloudinaryCredentials() ? 'Cloudinary ☁️' : 'Local Disk 💾');
   console.log('');
 };
