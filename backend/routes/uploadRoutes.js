@@ -1167,7 +1167,7 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
       path: req.file.path,
       size: req.file.size,
       mimetype: req.file.mimetype,
-      isProduction: isCloudStorage(),
+      isCloudStorage: isCloudStorage(),
       NODE_ENV: process.env.NODE_ENV
     });
 
@@ -1230,7 +1230,7 @@ router.get('/', protect, async (req, res) => {
 
     const uploads = await Upload.find({ userId })
       .sort({ createdAt: -1 })
-      .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+      .select('filename originalName size mimetype status createdAt chartCount reportCount path cloudUrl cloudPublicId');
 
     console.log(`✅ Found ${uploads.length} uploads for user ${userId}`);
 
@@ -1248,7 +1248,9 @@ router.get('/', protect, async (req, res) => {
       chartCount: upload.chartCount || 0,
       reportCount: upload.reportCount || 0,
       mimetype: upload.mimetype,
-      path: upload.path
+      path: upload.path,
+      cloudUrl: upload.cloudUrl,
+      hasCloudUrl: !!upload.cloudUrl
     }));
 
     res.json({ uploads: formattedUploads });
@@ -1272,7 +1274,7 @@ router.get('/history', protect, async (req, res) => {
 
     const uploads = await Upload.find({ userId })
       .sort({ createdAt: -1 })
-      .select('filename originalName size mimetype status createdAt chartCount reportCount path');
+      .select('filename originalName size mimetype status createdAt chartCount reportCount path cloudUrl');
 
     console.log(`✅ Found ${uploads.length} uploads`);
 
@@ -1303,7 +1305,9 @@ router.get('/history', protect, async (req, res) => {
         chartCount: upload.chartCount || 0,
         reportCount: upload.reportCount || 0,
         mimetype: upload.mimetype,
-        path: upload.path
+        path: upload.path,
+        cloudUrl: upload.cloudUrl,
+        hasCloudUrl: !!upload.cloudUrl
       };
     });
 
@@ -1340,6 +1344,15 @@ router.get('/:id/download', protect, async (req, res) => {
       });
     }
 
+    console.log('📦 Upload record found:', {
+      id: upload._id,
+      filename: upload.originalName,
+      hasCloudUrl: !!upload.cloudUrl,
+      cloudUrl: upload.cloudUrl,
+      hasPath: !!upload.path,
+      path: upload.path
+    });
+
     // ✅ PRIORITY 1: Try Cloudinary URL first (for production)
     if (upload.cloudUrl) {
       console.log('✅ Redirecting to Cloudinary URL:', upload.cloudUrl);
@@ -1347,34 +1360,45 @@ router.get('/:id/download', protect, async (req, res) => {
     }
 
     // ✅ PRIORITY 2: Try local path (for development)
-    if (upload.path && fs.existsSync(upload.path)) {
-      console.log(`✅ Streaming local file: ${upload.originalName}`);
+    if (upload.path) {
+      const fileExists = fs.existsSync(upload.path);
+      console.log(`🔍 Checking local file: ${upload.path}, exists: ${fileExists}`);
+      
+      if (fileExists) {
+        console.log(`✅ Streaming local file: ${upload.originalName}`);
 
-      res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
-      res.setHeader('Content-Length', upload.size);
-      
-      const fileStream = fs.createReadStream(upload.path);
-      
-      fileStream.on('error', (error) => {
-        console.error('❌ Stream error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ 
-            success: false,
-            message: 'Error streaming file' 
-          });
-        }
-      });
-      
-      fileStream.pipe(res);
-      return;
+        res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+        res.setHeader('Content-Length', upload.size);
+        
+        const fileStream = fs.createReadStream(upload.path);
+        
+        fileStream.on('error', (error) => {
+          console.error('❌ Stream error:', error);
+          if (!res.headersSent) {
+            res.status(500).json({ 
+              success: false,
+              message: 'Error streaming file' 
+            });
+          }
+        });
+        
+        fileStream.pipe(res);
+        return;
+      }
     }
 
     // ❌ PRIORITY 3: File not available anywhere
     console.log('❌ File content not available in Cloudinary or local storage');
+    console.log('Upload details:', {
+      cloudUrl: upload.cloudUrl,
+      path: upload.path,
+      cloudPublicId: upload.cloudPublicId
+    });
+    
     return res.status(404).json({ 
       success: false,
-      message: 'File content unavailable (ephemeral storage cleaned)'
+      message: 'File content unavailable. The file may have been cleaned up due to ephemeral storage limitations. Please re-upload the file.'
     });
     
   } catch (error) {
@@ -1406,6 +1430,14 @@ router.get('/:id', protect, async (req, res) => {
       return res.status(404).json({ message: 'File not found' });
     }
 
+    console.log('📄 Upload details:', {
+      id: upload._id,
+      filename: upload.originalName,
+      hasCloudUrl: !!upload.cloudUrl,
+      cloudUrl: upload.cloudUrl,
+      hasPath: !!upload.path
+    });
+
     res.json(upload);
   } catch (error) {
     console.error('Error fetching upload:', error);
@@ -1433,20 +1465,24 @@ router.delete('/:id', protect, logOperation('DELETE_FILE'), async (req, res) => 
       return res.status(404).json({ message: 'File not found' });
     }
 
-    // ✅ Delete from Cloudinary if in production
-    if (isCloudStorage() && upload.cloudinaryPublicId) {
+    // ✅ Delete from Cloudinary if available
+    if (upload.cloudPublicId && isCloudStorage()) {
       try {
-        await deleteFromCloudinary(upload.cloudinaryPublicId);
-        console.log('✅ File deleted from Cloudinary');
+        await deleteFromCloudinary(upload.cloudPublicId);
+        console.log('✅ File deleted from Cloudinary:', upload.cloudPublicId);
       } catch (err) {
         console.error('⚠️ Could not delete from Cloudinary:', err.message);
       }
     }
 
-    // ✅ Delete from local storage if in development
-    if (!isCloudStorage() && fs.existsSync(upload.path)) {
-      fs.unlinkSync(upload.path);
-      console.log('✅ Physical file deleted:', upload.path);
+    // ✅ Delete from local storage if available
+    if (upload.path && !isCloudStorage() && fs.existsSync(upload.path)) {
+      try {
+        fs.unlinkSync(upload.path);
+        console.log('✅ Physical file deleted:', upload.path);
+      } catch (err) {
+        console.error('⚠️ Could not delete local file:', err.message);
+      }
     }
 
     // ✅ Delete database record
