@@ -1110,7 +1110,6 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
     navigate(`/dashboard/analysis/${item._id || item.id}`);
   };
 
-  // ✅ NEW: Handle download with proper error handling
   const handleDownload = async (item) => {
     const fileId = item._id || item.id;
     const filename = item.filename || item.originalname || item.originalName || 'file';
@@ -1123,7 +1122,6 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
         responseType: 'blob'
       });
 
-      // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -1138,7 +1136,7 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
       console.error('Download error:', error);
       
       if (error.response?.status === 404) {
-        toast.error('File no longer available on server. It may have been cleaned up.', {
+        toast.error('File no longer available. It may have been cleaned up from the server.', {
           duration: 5000,
           icon: '⚠️'
         });
@@ -1319,11 +1317,11 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
                   </div>
                 </div>
 
-                {/* ✅ FIXED: Three-button layout */}
+                {/* Three-button layout: Analyze, Download, Delete */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleAnalyze(item)}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    className="flex-1 px-3 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-sm"
                     title="Analyze File"
                   >
                     <BarChart3 className="w-4 h-4" />
@@ -1331,14 +1329,14 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
                   </button>
                   <button
                     onClick={() => handleDownload(item)}
-                    className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+                    className="px-3 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center"
                     title="Download File"
                   >
                     <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(item._id || item.id)}
-                    className="px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+                    className="px-3 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center"
                     title="Delete File"
                   >
                     <Trash2 className="w-4 h-4" />
