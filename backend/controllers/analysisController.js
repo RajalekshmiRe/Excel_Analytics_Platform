@@ -565,9 +565,438 @@
 
 
 
+// import mongoose from "mongoose";
+// import Upload from '../models/Upload.js';
+// import User from '../models/User.js';
+
+// // Constants
+// const BYTES_PER_MB = 1024 * 1024;
+// const BYTES_PER_GB = 1024 * 1024 * 1024;
+
+// // Utility function to format bytes
+// const formatBytes = (bytes) => {
+//   if (bytes === 0) return { value: 0, unit: 'MB', formatted: '0 MB' };
+  
+//   if (bytes < BYTES_PER_GB) {
+//     return {
+//       value: (bytes / BYTES_PER_MB).toFixed(2),
+//       unit: 'MB',
+//       formatted: `${(bytes / BYTES_PER_MB).toFixed(2)} MB`
+//     };
+//   }
+  
+//   return {
+//     value: (bytes / BYTES_PER_GB).toFixed(2),
+//     unit: 'GB',
+//     formatted: `${(bytes / BYTES_PER_GB).toFixed(2)} GB`
+//   };
+// };
+
+// // Get chart data for analytics
+// export const chartData = async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+
+//     const uploads = await Upload.find({ userId }).sort({ createdAt: -1 });
+
+//     const totalUploads = uploads.length;
+//     const totalSize = uploads.reduce((sum, upload) => sum + (upload.size || 0), 0);
+    
+//     const uploadsByMonth = {};
+//     const uploadsByType = {};
+    
+//     uploads.forEach(upload => {
+//       const month = new Date(upload.createdAt).toLocaleString('default', { 
+//         month: 'short', 
+//         year: 'numeric' 
+//       });
+//       uploadsByMonth[month] = (uploadsByMonth[month] || 0) + 1;
+      
+//       const ext = upload.originalName?.split('.').pop()?.toUpperCase() || 'OTHER';
+//       uploadsByType[ext] = (uploadsByType[ext] || 0) + 1;
+//     });
+
+//     const monthlyData = Object.entries(uploadsByMonth).map(([month, count]) => ({
+//       month,
+//       uploads: count
+//     }));
+
+//     const typeData = Object.entries(uploadsByType).map(([type, count]) => ({
+//       type,
+//       count
+//     }));
+
+//     const recentUploads = uploads.slice(0, 10).map(upload => ({
+//       fileName: upload.originalName,
+//       fileSize: upload.size,
+//       uploadDate: upload.createdAt
+//     }));
+
+//     res.json({
+//       success: true,
+//       data: {
+//         totalUploads,
+//         totalSize,
+//         monthlyData,
+//         typeData,
+//         recentUploads
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Chart data error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Failed to fetch chart data',
+//       error: error.message
+//     });
+//   }
+// };
+
+// // Get Analytics Dashboard Data
+// export const getAnalytics = async (req, res) => {
+//   try {
+//     const userId = req.user._id || req.user.id;
+//     const { timeRange = 'all' } = req.query;
+
+//     console.log(`📊 Fetching analytics for user: ${userId}, range: ${timeRange}`);
+
+//     const now = new Date();
+//     let startDate;
+    
+//     switch(timeRange) {
+//       case '7days':
+//         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+//         break;
+//       case '30days':
+//         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+//         break;
+//       case '90days':
+//         startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+//         break;
+//       case 'all':
+//         startDate = new Date(0);
+//         break;
+//       default:
+//         startDate = new Date(0);
+//     }
+
+//     const query = timeRange === 'all' 
+//       ? { userId }
+//       : { userId, createdAt: { $gte: startDate } };
+
+//     const uploads = await Upload.find(query).sort({ createdAt: -1 });
+
+//     console.log(`✅ Found ${uploads.length} uploads in date range: ${timeRange}`);
+
+//     const totalUploads = uploads.length;
+//     const totalStorage = uploads.reduce((sum, upload) => sum + (upload.size || 0), 0);
+//     const totalCharts = uploads.reduce((sum, upload) => sum + (upload.chartCount || 0), 0);
+//     const totalReports = uploads.reduce((sum, upload) => sum + (upload.reportCount || 0), 0);
+
+//     const formatStorage = (bytes) => {
+//       if (bytes === 0) return '0 MB';
+//       const mb = bytes / BYTES_PER_MB;
+//       return `${mb.toFixed(2)} MB`;
+//     };
+
+//     const uploadTrend = [];
+//     for (let i = 6; i >= 0; i--) {
+//       const date = new Date();
+//       date.setDate(date.getDate() - i);
+//       date.setHours(0, 0, 0, 0);
+      
+//       const nextDate = new Date(date);
+//       nextDate.setDate(nextDate.getDate() + 1);
+      
+//       const count = uploads.filter(u => {
+//         const uploadDate = new Date(u.createdAt);
+//         return uploadDate >= date && uploadDate < nextDate;
+//       }).length;
+      
+//       uploadTrend.push({
+//         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+//         uploads: count
+//       });
+//     }
+
+//     const fileTypeMap = {};
+//     uploads.forEach(upload => {
+//       const ext = upload.originalName?.split('.').pop()?.toUpperCase() || 'OTHER';
+//       fileTypeMap[ext] = (fileTypeMap[ext] || 0) + 1;
+//     });
+
+//     const fileTypes = Object.entries(fileTypeMap).map(([name, value]) => ({
+//       name,
+//       value
+//     }));
+
+//     let cumulativeSize = 0;
+//     const storageUsage = uploadTrend.map((item, index) => {
+//       const dayUploads = uploads.filter(u => {
+//         const uploadDate = new Date(u.createdAt);
+//         const trendDate = new Date();
+//         trendDate.setDate(trendDate.getDate() - (6 - index));
+//         trendDate.setHours(0, 0, 0, 0);
+//         return uploadDate <= trendDate;
+//       });
+//       cumulativeSize = dayUploads.reduce((sum, u) => sum + (u.size || 0), 0);
+//       return {
+//         date: item.date,
+//         storage: parseFloat((cumulativeSize / BYTES_PER_MB).toFixed(2))
+//       };
+//     });
+
+//     const recentActivity = uploads.slice(0, 5).map(upload => ({
+//       action: `Uploaded ${upload.originalName}`,
+//       time: new Date(upload.createdAt).toLocaleString('en-US', {
+//         month: 'short',
+//         day: 'numeric',
+//         hour: '2-digit',
+//         minute: '2-digit'
+//       }),
+//       status: 'success'
+//     }));
+
+//     const topFiles = uploads.slice(0, 5).map(file => ({
+//       name: file.originalName,
+//       size: formatStorage(file.size || 0),
+//       views: file.chartCount || 0
+//     }));
+
+//     const previousPeriodStart = new Date(startDate);
+//     const periodLength = now.getTime() - startDate.getTime();
+//     previousPeriodStart.setTime(startDate.getTime() - periodLength);
+    
+//     const previousUploads = await Upload.find({
+//       userId,
+//       createdAt: { $gte: previousPeriodStart, $lt: startDate }
+//     });
+
+//     const calculateTrend = (current, previous) => {
+//       if (previous === 0) return current > 0 ? 100 : 0;
+//       return Math.round(((current - previous) / previous) * 100);
+//     };
+
+//     const previousStorage = previousUploads.reduce((sum, u) => sum + (u.size || 0), 0);
+//     const previousCharts = previousUploads.reduce((sum, u) => sum + (u.chartCount || 0), 0);
+//     const previousReports = previousUploads.reduce((sum, u) => sum + (u.reportCount || 0), 0);
+
+//     const overview = {
+//       totalUploads,
+//       uploadsTrend: calculateTrend(totalUploads, previousUploads.length),
+//       totalStorage: formatStorage(totalStorage),
+//       storageTrend: calculateTrend(totalStorage, previousStorage),
+//       totalCharts,
+//       chartsTrend: calculateTrend(totalCharts, previousCharts),
+//       totalReports,
+//       reportsTrend: calculateTrend(totalReports, previousReports)
+//     };
+
+//     const analyticsData = {
+//       overview,
+//       uploadTrend,
+//       fileTypes,
+//       storageUsage,
+//       recentActivity,
+//       topFiles
+//     };
+
+//     console.log('✅ Analytics data prepared successfully');
+
+//     res.json(analyticsData);
+//   } catch (error) {
+//     console.error('❌ Error fetching analytics:', error);
+//     res.status(500).json({
+//       message: 'Failed to fetch analytics',
+//       error: error.message
+//     });
+//   }
+// };
+
+// // Function to view user details (Dashboard Stats)
+// export const viewUserDetails = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+//     const requestingUserId = req.user._id || req.user.id;
+
+//     console.log(`📊 Fetching dashboard stats for user: ${userId}`);
+//     console.log(`🔐 Requesting user: ${requestingUserId}`);
+
+//     // ✅ Security: Users can only view their own stats
+//     if (userId !== requestingUserId.toString()) {
+//       console.log(`⛔ Access denied: User ${requestingUserId} tried to access stats of ${userId}`);
+//       return res.status(403).json({ 
+//         success: false,
+//         message: "Access denied: You can only view your own statistics" 
+//       });
+//     }
+
+//     // Validate ObjectId
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ 
+//         success: false,
+//         message: "Invalid user ID format" 
+//       });
+//     }
+
+//     const user = await User.findById(userId).select("name email role");
+//     if (!user) {
+//       return res.status(404).json({ 
+//         success: false,
+//         message: "User not found" 
+//       });
+//     }
+
+//     // Fetch uploads for the user
+//     const uploads = await Upload.find({ userId });
+
+//     // Calculate stats
+//     const totalUploads = uploads.length;
+//     const filesProcessed = uploads.filter(u => u.status === "processed").length;
+//     const totalBytes = uploads.reduce((sum, file) => sum + (file.size || 0), 0);
+
+//     // Format storage
+//     const storage = formatBytes(totalBytes);
+//     const storageUsedGB = parseFloat(
+//       storage.unit === 'GB' ? storage.value : (parseFloat(storage.value) / 1024).toFixed(2)
+//     );
+//     const storageQuota = 100; // 100 GB quota
+//     const storageUsedPercent = Math.min(Math.round((storageUsedGB / storageQuota) * 100), 100);
+
+//     // Get report count using aggregation
+//     const totalReportCount = await Upload.aggregate([
+//       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+//       { $group: { _id: null, total: { $sum: "$reportCount" } } }
+//     ]);
+//     const activeReports = totalReportCount.length > 0 ? totalReportCount[0].total : 0;
+
+//     // Get chart count using aggregation
+//     const chartCount = await Upload.aggregate([
+//       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+//       { $group: { _id: null, total: { $sum: "$chartCount" } } }
+//     ]);
+//     const chartsGenerated = chartCount.length > 0 ? chartCount[0].total : 0;
+
+//     const statsResponse = {
+//       success: true,
+//       stats: {
+//         totalUploads,
+//         filesProcessed,
+//         storageUsedPercent,
+//         storageUsed: storage.value,
+//         storageUnit: storage.unit,
+//         storageQuota,
+//         activeReports,
+//         chartsGenerated
+//       }
+//     };
+
+//     console.log(`✅ Dashboard stats prepared:`, statsResponse.stats);
+
+//     res.json(statsResponse);
+//   } catch (error) {
+//     console.error("❌ Dashboard stats error:", error);
+//     res.status(500).json({ 
+//       success: false,
+//       message: "Error fetching dashboard statistics",
+//       error: error.message 
+//     });
+//   }
+// };
+
+// // Update chart generated count
+// export const chartCountUpdate = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: "Invalid upload ID format" 
+//       });
+//     }
+
+//     const upload = await Upload.findByIdAndUpdate(
+//       id,
+//       { $inc: { chartCount: 1 } },
+//       { new: true }
+//     );
+
+//     if (!upload) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         message: "Upload not found" 
+//       });
+//     }
+
+//     console.log(`✅ Chart count updated for upload: ${id}, new count: ${upload.chartCount}`);
+
+//     res.json({
+//       success: true,
+//       message: "Chart count updated successfully",
+//       data: upload
+//     });
+//   } catch (err) {
+//     console.error("❌ Error incrementing chart count:", err);
+//     res.status(500).json({ 
+//       success: false, 
+//       message: "Server error",
+//       error: err.message 
+//     });
+//   }
+// };
+
+// // Update report generated count
+// export const reportCountUpdate = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: "Invalid upload ID format" 
+//       });
+//     }
+
+//     const upload = await Upload.findByIdAndUpdate(
+//       id,
+//       { $inc: { reportCount: 1 } },
+//       { new: true }
+//     );
+
+//     if (!upload) {
+//       return res.status(404).json({ 
+//         success: false, 
+//         message: "Upload not found" 
+//       });
+//     }
+
+//     console.log(`✅ Report count updated for upload: ${id}, new count: ${upload.reportCount}`);
+
+//     res.json({
+//       success: true,
+//       message: "Report count updated successfully",
+//       data: upload
+//     });
+//   } catch (err) {
+//     console.error("❌ Error incrementing report count:", err);
+//     res.status(500).json({ 
+//       success: false, 
+//       message: "Server error",
+//       error: err.message 
+//     });
+//   }
+// };
+
+
+
+
 import mongoose from "mongoose";
 import Upload from '../models/Upload.js';
 import User from '../models/User.js';
+import axios from 'axios';
+import Papa from 'papaparse';
+import fs from 'fs'; // ✅ CRITICAL: Added missing import
 
 // Constants
 const BYTES_PER_MB = 1024 * 1024;
@@ -590,6 +1019,216 @@ const formatBytes = (bytes) => {
     unit: 'GB',
     formatted: `${(bytes / BYTES_PER_GB).toFixed(2)} GB`
   };
+};
+
+// ✅ Fetch file content from Cloudinary or local
+const fetchFileContent = async (file) => {
+  console.log('📂 Fetching file content:', {
+    filename: file.originalName,
+    hasCloudUrl: !!file.cloudUrl,
+    hasPath: !!file.path,
+    pathExists: file.path ? fs.existsSync(file.path) : false
+  });
+
+  // ✅ PRIORITY 1: Try Cloudinary FIRST (for production/Vercel)
+  if (file.cloudUrl) {
+    try {
+      console.log('☁️ Fetching from Cloudinary:', file.cloudUrl);
+      const response = await axios.get(file.cloudUrl, {
+        responseType: 'text',
+        timeout: 30000
+      });
+      console.log('✅ Cloudinary fetch successful, size:', response.data.length);
+      return response.data;
+    } catch (cloudErr) {
+      console.error('❌ Cloudinary fetch failed:', cloudErr.message);
+      // Fall through to try local
+    }
+  }
+  
+  // ✅ PRIORITY 2: Try local file (for development)
+  if (file.path && fs.existsSync(file.path)) {
+    console.log('📁 Reading from local file:', file.path);
+    return fs.readFileSync(file.path, 'utf-8');
+  }
+  
+  throw new Error('File content unavailable - neither Cloudinary nor local file found');
+};
+
+// ✅ Parse CSV content
+const parseCSV = (content) => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(content, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results) => resolve(results),
+      error: (error) => reject(error)
+    });
+  });
+};
+
+// ✅ Get file analysis with data preview
+export const analyzeFile = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const userId = req.user._id || req.user.id;
+
+    console.log('🔍 Analysis request:', { fileId, userId });
+
+    // Get file from database
+    const file = await Upload.findById(fileId);
+    
+    if (!file) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'File not found' 
+      });
+    }
+
+    // Verify ownership
+    if (file.userId.toString() !== userId.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Access denied' 
+      });
+    }
+
+    // Check if file has accessible content
+    if (!file.cloudUrl && !file.path) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'File content unavailable',
+        message: 'The file was cleaned from temporary storage. Please re-upload.'
+      });
+    }
+
+    // Fetch and parse file content
+    const fileContent = await fetchFileContent(file);
+    const parseResult = await parseCSV(fileContent);
+
+    if (!parseResult.data || parseResult.data.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'No data found in file' 
+      });
+    }
+
+    // Extract column information
+    const columns = Object.keys(parseResult.data[0]);
+    const rowCount = parseResult.data.length;
+    
+    // Get data preview (first 10 rows)
+    const preview = parseResult.data.slice(0, 10);
+
+    // Calculate column statistics
+    const columnStats = columns.map(col => {
+      const values = parseResult.data.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
+      const numericValues = values.filter(v => !isNaN(parseFloat(v))).map(v => parseFloat(v));
+      
+      const stats = {
+        column: col,
+        type: numericValues.length > values.length * 0.5 ? 'numeric' : 'text',
+        totalCount: parseResult.data.length,
+        nonNullCount: values.length,
+        nullCount: parseResult.data.length - values.length,
+        uniqueCount: new Set(values).size
+      };
+
+      if (stats.type === 'numeric' && numericValues.length > 0) {
+        stats.min = Math.min(...numericValues);
+        stats.max = Math.max(...numericValues);
+        stats.mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+        
+        // Calculate median
+        const sorted = [...numericValues].sort((a, b) => a - b);
+        stats.median = sorted.length % 2 === 0
+          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+          : sorted[Math.floor(sorted.length / 2)];
+      }
+
+      return stats;
+    });
+
+    console.log('✅ Analysis completed:', {
+      fileId,
+      rowCount,
+      columnCount: columns.length
+    });
+
+    res.json({
+      success: true,
+      data: {
+        fileId: file._id,
+        filename: file.originalName,
+        rowCount,
+        columnCount: columns.length,
+        columns,
+        columnStats,
+        preview,
+        fileInfo: {
+          size: file.size,
+          uploadedAt: file.createdAt,
+          cloudStored: !!file.cloudUrl
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Analysis error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze file',
+      message: error.message
+    });
+  }
+};
+
+// ✅ Get specific columns data for charting
+export const getColumnData = async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const { columns } = req.query; // comma-separated column names
+    const userId = req.user._id || req.user.id;
+
+    const file = await Upload.findById(fileId);
+    
+    if (!file || file.userId.toString() !== userId.toString()) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'File not found or access denied' 
+      });
+    }
+
+    const fileContent = await fetchFileContent(file);
+    const parseResult = await parseCSV(fileContent);
+
+    const requestedColumns = columns ? columns.split(',') : Object.keys(parseResult.data[0]);
+    
+    const data = parseResult.data.map(row => {
+      const filtered = {};
+      requestedColumns.forEach(col => {
+        filtered[col] = row[col];
+      });
+      return filtered;
+    });
+
+    res.json({
+      success: true,
+      data: {
+        columns: requestedColumns,
+        rows: data
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Column data error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch column data',
+      message: error.message
+    });
+  }
 };
 
 // Get chart data for analytics

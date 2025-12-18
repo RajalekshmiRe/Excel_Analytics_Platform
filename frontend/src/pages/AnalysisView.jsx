@@ -571,33 +571,40 @@ const AnalysisView = () => {
       console.log('✅ Metadata received:', metaResponse.data);
       setFileInfo(metaResponse.data);
       
-      try {
-        console.log('📥 Downloading file...');
-        const downloadResponse = await api.get(
-          `/uploads/${fileId}/download`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            responseType: 'blob'
-          }
-        );
+ try {
+  console.log('📥 Downloading file...');
+  const downloadResponse = await api.get(
+    `/uploads/${fileId}/download`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: 'blob'
+    }
+  );
 
-        console.log('✅ File downloaded, size:', downloadResponse.data.size);
+  console.log('✅ File downloaded:', {
+    size: downloadResponse.data.size,
+    type: downloadResponse.data.type
+  });
 
-        const blob = downloadResponse.data;
-        const fileName = metaResponse.data.originalName || metaResponse.data.filename || '';
-        const fileExtension = fileName.split('.').pop().toLowerCase();
-        
-        console.log('🔍 Parsing file type:', fileExtension);
-        
-        if (fileExtension === 'csv') {
-          await parseCSV(blob);
-        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-          await parseExcel(blob);
-        } else {
-          throw new Error(`Unsupported file format: ${fileExtension}`);
-        }
-        
-        setFileAvailable(true);
+  const blob = downloadResponse.data;
+  const fileName = metaResponse.data.originalName || metaResponse.data.filename || '';
+  const fileExtension = fileName.split('.').pop().toLowerCase();
+  
+  console.log('🔍 Parsing file type:', fileExtension);
+  
+  // ✅ Parse based on file type
+  if (fileExtension === 'csv') {
+    // Convert blob to text for CSV
+    const text = await blob.text();
+    console.log('📝 CSV text length:', text.length);
+    await parseCSV(text);
+  } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+    await parseExcel(blob);
+  } else {
+    throw new Error(`Unsupported file format: ${fileExtension}`);
+  }
+  
+  setFileAvailable(true);
         
       } catch (downloadErr) {
         if (downloadErr.response?.status === 404) {
@@ -647,58 +654,72 @@ const AnalysisView = () => {
     }
   };
 
-  const parseCSV = async (blob) => {
-    return new Promise((resolve, reject) => {
-      const text = blob.text();
-      
-      text.then(content => {
-        Papa.parse(content, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            console.log('✅ CSV parsed:', results.data.length, 'rows');
-            
-            if (results.data.length === 0 || !results.meta.fields || results.meta.fields.length === 0) {
-              console.warn('⚠️ CSV file is empty or has no headers');
-              if (!toastShownRef.current) {
-                toast('CSV file appears to be empty', {
-                  id: `empty-csv-${fileId}`,
-                  icon: 'ℹ️',
-                  duration: 4000
-                });
-                toastShownRef.current = true;
-              }
-              resolve();
-              return;
-            }
-            
-            setFileData({
-              headers: results.meta.fields,
-              rows: results.data,
-              rowCount: results.data.length
-            });
-            
+ const parseCSV = async (content) => {
+  return new Promise((resolve, reject) => {
+    // Handle both string and blob
+    const parseText = (text) => {
+      Papa.parse(text, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          console.log('✅ CSV parsed:', results.data.length, 'rows');
+          
+          if (results.data.length === 0 || !results.meta.fields || results.meta.fields.length === 0) {
+            console.warn('⚠️ CSV file is empty or has no headers');
             if (!toastShownRef.current) {
-              toast.success(`CSV loaded! ${results.data.length} rows`, {
-                id: `csv-success-${fileId}`,
-                duration: 3000
+              toast('CSV file appears to be empty', {
+                id: `empty-csv-${fileId}`,
+                icon: 'ℹ️',
+                duration: 4000
               });
               toastShownRef.current = true;
             }
             resolve();
-          },
-          error: (error) => {
-            console.error('❌ CSV parsing error:', error);
-            reject(new Error('CSV parsing failed: ' + error.message));
+            return;
           }
-        });
-      }).catch(err => {
-        console.error('❌ Error reading blob:', err);
-        reject(err);
+          
+          setFileData({
+            headers: results.meta.fields,
+            rows: results.data,
+            rowCount: results.data.length
+          });
+          
+          if (!toastShownRef.current) {
+            toast.success(`CSV loaded! ${results.data.length} rows`, {
+              id: `csv-success-${fileId}`,
+              duration: 3000
+            });
+            toastShownRef.current = true;
+          }
+          resolve();
+        },
+        error: (error) => {
+          console.error('❌ CSV parsing error:', error);
+          reject(new Error('CSV parsing failed: ' + error.message));
+        }
       });
-    });
-  };
+    };
+
+    // Check if content is already a string
+    if (typeof content === 'string') {
+      parseText(content);
+    } 
+    // If it's a Blob, convert to text first
+    else if (content instanceof Blob) {
+      content.text()
+        .then(text => parseText(text))
+        .catch(err => {
+          console.error('❌ Error reading blob:', err);
+          reject(err);
+        });
+    } 
+    // Otherwise reject
+    else {
+      reject(new Error('Invalid content type for CSV parsing'));
+    }
+  });
+};
 
   const parseExcel = async (blob) => {
     return new Promise((resolve, reject) => {

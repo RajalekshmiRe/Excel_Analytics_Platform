@@ -325,193 +325,82 @@
 
 
 
-// blogsphere/backend/controllers/uploadController.js (or userController.js)
-import User from '../models/User.js';
-import Post from '../models/Post.js';
-import fs from 'fs';
-import path from 'path';
-import { deleteFromCloudinary, getPublicIdFromUrl, isCloudStorage } from '../config/cloudinary.js';
+import Upload from '../models/Upload.js';
+import { uploadCloudinary, isCloudStorage } from '../config/cloudinary.js';
 
-// ✅ Update User Avatar
-export const updateAvatar = async (req, res) => {
+export const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: 'No image uploaded' });
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const userId = req.user.id;
-    const user = await User.findById(userId);
+    const userId = req.user._id || req.user.id;
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    console.log('📤 Processing upload:', {
+      filename: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
 
-    // ✅ Delete old avatar from Cloudinary if exists
-    if (user.avatar && isCloudStorage()) {
-      const oldPublicId = getPublicIdFromUrl(user.avatar);
-      if (oldPublicId) {
-        try {
-          await deleteFromCloudinary(oldPublicId);
-          console.log('🗑️ Deleted old avatar from Cloudinary');
-        } catch (err) {
-          console.error('Warning: Could not delete old avatar:', err.message);
-        }
-      }
-    }
+    // ✅ Initialize Cloud variables
+    let cloudUrl = null;
+    let cloudPublicId = null;
 
-    // ✅ Delete old local avatar if exists
-    if (user.avatar && !isCloudStorage() && fs.existsSync(user.avatar)) {
+    // ✅ Upload to Cloudinary if available
+    if (isCloudStorage()) {
       try {
-        fs.unlinkSync(user.avatar);
-        console.log('🗑️ Deleted old local avatar');
+        const result = await uploadCloudinary(req.file.buffer || req.file.path, {
+          folder: 'excel-analytics-platform',
+          use_filename: true,
+          unique_filename: true
+        });
+
+        cloudUrl = result.secure_url;
+        cloudPublicId = result.public_id;
+
+        console.log('☁️ Uploaded to Cloudinary:', cloudPublicId);
       } catch (err) {
-        console.error('Warning: Could not delete old local avatar:', err.message);
+        console.error('⚠️ Cloudinary upload failed:', err);
+        // fallback to local storage if Cloudinary fails
       }
     }
 
-    // ✅ Update user with new avatar URL
-    const avatarUrl = isCloudStorage() ? req.file.path : req.file.path;
-    user.avatar = avatarUrl;
-    await user.save();
-
-    console.log('✅ Avatar updated:', {
+    // ✅ Create Upload record in DB
+    const upload = new Upload({
       userId,
-      storage: isCloudStorage() ? 'Cloudinary' : 'Local',
-      url: avatarUrl
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      path: req.file.path, // local fallback
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      cloudUrl,
+      cloudPublicId,
+      status: 'processed'
     });
 
+    await upload.save();
+
+    console.log('✅ Upload saved:', { id: upload._id, cloudStored: !!cloudUrl });
+
+    // ✅ Respond with file info
     res.json({
-      message: 'Avatar updated successfully',
-      avatar: avatarUrl
-    });
-  } catch (error) {
-    console.error('❌ Error updating avatar:', error);
-    res.status(500).json({ 
-      message: 'Failed to update avatar', 
-      error: error.message 
-    });
-  }
-};
-
-// ✅ Upload Post Image
-export const uploadPostImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image uploaded' });
-    }
-
-    const imageUrl = isCloudStorage() ? req.file.path : req.file.path;
-
-    console.log('✅ Post image uploaded:', {
-      storage: isCloudStorage() ? 'Cloudinary' : 'Local',
-      url: imageUrl
-    });
-
-    res.json({
-      message: 'Image uploaded successfully',
-      imageUrl
-    });
-  } catch (error) {
-    console.error('❌ Error uploading post image:', error);
-    res.status(500).json({ 
-      message: 'Failed to upload image', 
-      error: error.message 
-    });
-  }
-};
-
-// ✅ Create Post with Image
-export const createPost = async (req, res) => {
-  try {
-    const { title, content, category, tags } = req.body;
-    const authorId = req.user.id;
-
-    // ✅ Handle featured image if uploaded
-    let featuredImage = null;
-    if (req.file) {
-      featuredImage = isCloudStorage() ? req.file.path : req.file.path;
-    }
-
-    const post = new Post({
-      title,
-      content,
-      author: authorId,
-      category,
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
-      featuredImage
-    });
-
-    await post.save();
-
-    console.log('✅ Post created:', {
-      postId: post._id,
-      title: post.title,
-      hasFeaturedImage: !!featuredImage,
-      storage: isCloudStorage() ? 'Cloudinary' : 'Local'
-    });
-
-    res.status(201).json({
-      message: 'Post created successfully',
-      post
-    });
-  } catch (error) {
-    console.error('❌ Error creating post:', error);
-    res.status(500).json({ 
-      message: 'Failed to create post', 
-      error: error.message 
-    });
-  }
-};
-
-// ✅ Delete Post (and its image)
-export const deletePost = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-
-    const post = await Post.findById(id);
-
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    // ✅ Check if user owns the post
-    if (post.author.toString() !== userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this post' });
-    }
-
-    // ✅ Delete featured image from Cloudinary if exists
-    if (post.featuredImage && isCloudStorage()) {
-      const publicId = getPublicIdFromUrl(post.featuredImage);
-      if (publicId) {
-        try {
-          await deleteFromCloudinary(publicId);
-          console.log('🗑️ Deleted post image from Cloudinary');
-        } catch (err) {
-          console.error('Warning: Could not delete post image:', err.message);
-        }
+      success: true,
+      message: 'File uploaded successfully',
+      file: {
+        id: upload._id,
+        filename: upload.originalName,
+        size: upload.size,
+        uploadedAt: upload.createdAt,
+        cloudStored: !!cloudUrl
       }
-    }
+    });
 
-    // ✅ Delete local image if exists
-    if (post.featuredImage && !isCloudStorage() && fs.existsSync(post.featuredImage)) {
-      try {
-        fs.unlinkSync(post.featuredImage);
-        console.log('🗑️ Deleted local post image');
-      } catch (err) {
-        console.error('Warning: Could not delete local image:', err.message);
-      }
-    }
-
-    // ✅ Delete post from database
-    await Post.deleteOne({ _id: id });
-
-    res.json({ message: 'Post deleted successfully' });
   } catch (error) {
-    console.error('❌ Error deleting post:', error);
-    res.status(500).json({ 
-      message: 'Failed to delete post', 
-      error: error.message 
+    console.error('❌ Upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Upload failed',
+      message: error.message
     });
   }
 };

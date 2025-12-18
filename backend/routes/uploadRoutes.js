@@ -1149,10 +1149,6 @@ import { uploadExcel, deleteFromCloudinary, getPublicIdFromUrl, isCloudStorage }
 
 const router = express.Router();
 
-/* ============================================================
-   ✅ POST /api/uploads - Upload Excel/CSV file
-   🆕 Now supports BOTH local (dev) and Cloudinary (prod)
-============================================================ */
 router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -1160,35 +1156,33 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
     }
 
     const userId = req.user._id || req.user.id;
+    const isCloud = isCloudStorage();
 
     console.log('📦 Upload details:', {
       originalname: req.file.originalname,
       filename: req.file.filename,
-      path: req.file.path,
       size: req.file.size,
       mimetype: req.file.mimetype,
-      isCloudStorage: isCloudStorage(),
-      NODE_ENV: process.env.NODE_ENV
+      isCloudStorage: isCloud,
+      hasPath: !!req.file.path,
+      path: req.file.path
     });
 
-    // ✅ CRITICAL FIX: Determine storage type and extract correct fields
-    const isCloud = isCloudStorage();
-    
+    // ✅ For Cloudinary: req.file.path IS the cloudUrl, req.file.filename IS the publicId
+    // ✅ For Local: req.file.path is local disk path
     const newUpload = new Upload({
-      userId: userId,
+      userId,
       filename: req.file.originalname,
       originalName: req.file.originalname,
       
-      // ✅ CRITICAL: Store in correct field based on environment
-      path: !isCloud ? req.file.path : null,
-      cloudUrl: isCloud ? req.file.path : null,
-      cloudPublicId: isCloud ? (req.file.filename || req.file.public_id) : null,
+      // ✅ CRITICAL: Store BOTH for backward compatibility
+      path: isCloud ? null : req.file.path,           // Local path only for local storage
+      cloudUrl: isCloud ? req.file.path : null,       // Cloudinary URL (multer puts it in path)
+      cloudPublicId: isCloud ? req.file.filename : null, // Cloudinary public ID
       
       size: req.file.size,
       mimetype: req.file.mimetype,
-      status: 'processed',
-      chartCount: 0,
-      reportCount: 0
+      status: 'processed'
     });
 
     await newUpload.save();
@@ -1198,9 +1192,7 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
       filename: newUpload.originalName,
       storage: isCloud ? 'Cloudinary' : 'Local',
       cloudUrl: newUpload.cloudUrl,
-      path: newUpload.path,
-      cloudPublicId: newUpload.cloudPublicId,
-      userId: userId
+      localPath: newUpload.path
     });
 
     res.status(201).json({
@@ -1210,7 +1202,6 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
     });
   } catch (error) {
     console.error('❌ Upload error:', error);
-    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'File upload failed',
@@ -1323,7 +1314,7 @@ router.get('/history', protect, async (req, res) => {
 
 /* ============================================================
    ✅ GET /api/uploads/:id/download - Download file
-   🆕 Now works with BOTH local and Cloudinary storage
+   🆕 PROXY Cloudinary content instead of redirecting
 ============================================================ */
 router.get('/:id/download', protect, async (req, res) => {
   try {
@@ -1353,48 +1344,61 @@ router.get('/:id/download', protect, async (req, res) => {
       path: upload.path
     });
 
-    // ✅ PRIORITY 1: Try Cloudinary URL first (for production)
+    // ✅ PRIORITY 1: Stream from Cloudinary (for production/Vercel)
     if (upload.cloudUrl) {
-      console.log('✅ Redirecting to Cloudinary URL:', upload.cloudUrl);
-      return res.redirect(upload.cloudUrl);
-    }
+      try {
+        console.log('☁️ Fetching from Cloudinary:', upload.cloudUrl);
+        
+        // Import axios dynamically
+        const axios = (await import('axios')).default;
+        
+        const cloudResponse = await axios.get(upload.cloudUrl, {
+          responseType: 'arraybuffer',
+          timeout: 30000
+        });
 
-    // ✅ PRIORITY 2: Try local path (for development)
-    if (upload.path) {
-      const fileExists = fs.existsSync(upload.path);
-      console.log(`🔍 Checking local file: ${upload.path}, exists: ${fileExists}`);
-      
-      if (fileExists) {
-        console.log(`✅ Streaming local file: ${upload.originalName}`);
+        console.log('✅ Cloudinary fetch successful, size:', cloudResponse.data.length);
 
+        // Set headers for download
         res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
         res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
-        res.setHeader('Content-Length', upload.size);
+        res.setHeader('Content-Length', cloudResponse.data.length);
         
-        const fileStream = fs.createReadStream(upload.path);
+        // Send the file buffer
+        return res.send(Buffer.from(cloudResponse.data));
         
-        fileStream.on('error', (error) => {
-          console.error('❌ Stream error:', error);
-          if (!res.headersSent) {
-            res.status(500).json({ 
-              success: false,
-              message: 'Error streaming file' 
-            });
-          }
-        });
-        
-        fileStream.pipe(res);
-        return;
+      } catch (cloudErr) {
+        console.error('❌ Cloudinary fetch failed:', cloudErr.message);
+        // Fall through to try local file
       }
     }
 
+    // ✅ PRIORITY 2: Stream from local file (for development)
+    if (upload.path && fs.existsSync(upload.path)) {
+      console.log(`✅ Streaming local file: ${upload.originalName}`);
+
+      res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+      res.setHeader('Content-Length', upload.size);
+      
+      const fileStream = fs.createReadStream(upload.path);
+      
+      fileStream.on('error', (error) => {
+        console.error('❌ Stream error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false,
+            message: 'Error streaming file' 
+          });
+        }
+      });
+      
+      fileStream.pipe(res);
+      return;
+    }
+
     // ❌ PRIORITY 3: File not available anywhere
-    console.log('❌ File content not available in Cloudinary or local storage');
-    console.log('Upload details:', {
-      cloudUrl: upload.cloudUrl,
-      path: upload.path,
-      cloudPublicId: upload.cloudPublicId
-    });
+    console.log('❌ File content not available');
     
     return res.status(404).json({ 
       success: false,
@@ -1413,7 +1417,6 @@ router.get('/:id/download', protect, async (req, res) => {
     }
   }
 });
-
 /* ============================================================
    ✅ GET /api/uploads/:id - Get single upload details
 ============================================================ */

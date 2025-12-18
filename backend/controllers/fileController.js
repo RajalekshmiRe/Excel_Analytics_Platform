@@ -1,3 +1,4 @@
+import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import mime from "mime-types";
@@ -58,104 +59,58 @@ export const viewFile = async (req, res) => {
   }
 };
 
-// Download file
 export const downloadFile = async (req, res) => {
   try {
     const { fileId } = req.params;
 
-    // 🧩 Step 1: Validate file record in database
     const file = await Upload.findById(fileId);
     if (!file) {
-      return res.status(404).json({ error: "File not found in database" });
+      return res.status(404).json({ error: "File not found" });
     }
 
-    // ✅ PRIORITY 1: If Cloudinary URL exists, redirect to it
+    console.log('📥 Download request:', {
+      fileId,
+      hasCloudUrl: !!file.cloudUrl,
+      hasLocalPath: !!file.path
+    });
+
+    // ✅ 1️⃣ Prefer local file (old uploads)
+    if (file.path && fs.existsSync(file.path)) {
+      const mimeType = file.mimetype || mime.lookup(file.originalName) || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${file.originalName}"`
+      );
+
+      return fs.createReadStream(file.path).pipe(res);
+    }
+
+    // ✅ 2️⃣ Stream from Cloudinary (THIS FIXES PREVIEW)
     if (file.cloudUrl) {
-      console.log('✅ Redirecting to Cloudinary URL:', file.cloudUrl);
-      return res.redirect(file.cloudUrl);
-    }
-
-    // ✅ PRIORITY 2: Try local file path
-    if (!file.path) {
-      return res.status(404).json({ 
-        error: "File content unavailable (ephemeral storage cleaned)" 
+      const cloudResponse = await axios.get(file.cloudUrl, {
+        responseType: 'arraybuffer'
       });
+
+      res.setHeader(
+        'Content-Type',
+        file.mimetype || 'application/octet-stream'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${file.originalName}"`
+      );
+
+      return res.send(Buffer.from(cloudResponse.data));
     }
 
-    // 🧩 Step 2: Define and resolve upload directory
-    const uploadsDir = path.resolve("./uploads");
-
-    // 🧩 Step 3: Resolve full path safely
-    const filePath = path.isAbsolute(file.path)
-      ? file.path
-      : path.join(uploadsDir, path.basename(file.path));
-
-    // 🧩 Step 4: Security check — prevent directory traversal
-    if (!filePath.startsWith(uploadsDir)) {
-      return res.status(403).json({ error: "Access denied: Invalid file path" });
-    }
-
-    // 🧩 Step 5: Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ 
-        error: "File content unavailable (ephemeral storage cleaned)" 
-      });
-    }
-
-    // 🧩 Step 6: Get file stats
-    let stats;
-    try {
-      stats = fs.statSync(filePath);
-    } catch (err) {
-      console.error("Stat error:", err);
-      return res.status(500).json({ error: "Unable to read file metadata" });
-    }
-
-    // 🧩 Step 7: Detect MIME type properly
-    const mimeType =
-      file.mimetype ||
-      mime.lookup(file.filename || filePath) ||
-      "application/octet-stream";
-
-    // 🧩 Step 8: Determine download filename
-    const safeFilename =
-      file.originalName ||
-      file.filename ||
-      path.basename(filePath) ||
-      `file_${fileId}`;
-
-    // 🧩 Step 9: Set headers before streaming
-    res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Length", stats.size);
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${encodeURIComponent(safeFilename)}"`
-    );
-
-    // 🧩 Step 10: Create and pipe the stream
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
-
-    // 🧩 Step 11: Handle stream errors gracefully
-    fileStream.on("error", (err) => {
-      console.error("File stream error:", err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Error reading file stream" });
-      } else {
-        res.end();
-      }
+    return res.status(404).json({
+      error: 'File content unavailable',
+      message: 'Re-upload required'
     });
 
-    // 🧩 Step 12: Clean up on client disconnect
-    req.on("close", () => {
-      fileStream.destroy();
-    });
   } catch (error) {
-    console.error("Download error:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Server error while processing download" });
-    } else {
-      res.end();
-    }
+    console.error('❌ Download error:', error);
+    res.status(500).json({ error: 'Server error while downloading' });
   }
 };

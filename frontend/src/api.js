@@ -394,13 +394,24 @@ export const uploadAPI = {
 // 📊 ANALYSIS API (✅ UPDATED WITH TIME RANGE SUPPORT)
 // ============================================================
 export const analysisAPI = {
-  // ✅ FIXED: Now accepts params object for filtering (timeRange, etc.)
-  getAnalytics: (params = {}) => api.get('/analysis/analytics', { params }),
-  
-  getStats: (userId) => api.get(`/analysis/stats/${userId}`),
-  createChart: (data) => api.post('/analysis/chart', data),
-  updateChartCount: (id) => api.patch(`/analysis/update-chart/${id}`),
-  updateReportCount: (id) => api.patch(`/analysis/update-report/${id}`),
+  getAnalytics: async (params = {}) => {
+    const token = localStorage.getItem("token");
+    
+    // ✅ Build query string properly
+    const queryParams = new URLSearchParams();
+    if (params.timeRange) {
+      queryParams.append('timeRange', params.timeRange);
+    }
+    
+    const queryString = queryParams.toString();
+    const url = `/analysis/analytics${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('📡 Analytics API request:', url);
+    
+    return api.get(url, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
 };
 
 // ============================================================
