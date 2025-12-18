@@ -1161,22 +1161,25 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
 
     const userId = req.user._id || req.user.id;
 
-    // ✅ Get file URL based on environment
-    const fileUrl = isCloudStorage() ? req.file.path : req.file.path;
-    const cloudinaryPublicId = isCloudStorage() ? req.file.public_id : null;
-    const newUpload = new Upload({
-      userId: userId,
-filename: req.file.originalname,
-      originalName: req.file.originalname,
-      path: fileUrl,
-      cloudinaryPublicId: cloudinaryPublicId,  // Store for deletion later
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-      status: 'processed',
-      chartCount: 0,
-      reportCount: 0
-    });
-
+ // ✅ CORRECTED: Store in the right fields based on environment
+const newUpload = new Upload({
+  userId: userId,
+  filename: req.file.originalname,
+  originalName: req.file.originalname,
+  
+  // ✅ For LOCAL: store in 'path'
+  path: !isCloudStorage() ? req.file.path : null,
+  
+  // ✅ For CLOUDINARY: store in 'cloudUrl' and 'cloudPublicId'
+  cloudUrl: isCloudStorage() ? req.file.path : null,
+  cloudPublicId: isCloudStorage() ? req.file.filename : null,
+  
+  size: req.file.size,
+  mimetype: req.file.mimetype,
+  status: 'processed',
+  chartCount: 0,
+  reportCount: 0
+});
     await newUpload.save();
 
     console.log('✅ File uploaded successfully:', {
@@ -1322,40 +1325,42 @@ router.get('/:id/download', protect, async (req, res) => {
       });
     }
 
-    // ✅ For Cloudinary: Redirect to Cloudinary URL
-    if (isCloudStorage()) {
-      console.log('✅ Redirecting to Cloudinary URL');
-      return res.redirect(upload.path);
+    // ✅ PRIORITY 1: Try Cloudinary URL first (for production)
+    if (upload.cloudUrl) {
+      console.log('✅ Redirecting to Cloudinary URL:', upload.cloudUrl);
+      return res.redirect(upload.cloudUrl);
     }
 
-    // ✅ For Local: Stream the file
-    if (!fs.existsSync(upload.path)) {
-      console.log('❌ Physical file not found:', upload.path);
-      return res.status(404).json({ 
-        success: false,
-        message: 'File no longer available'
+    // ✅ PRIORITY 2: Try local path (for development)
+    if (upload.path && fs.existsSync(upload.path)) {
+      console.log(`✅ Streaming local file: ${upload.originalName}`);
+
+      res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
+      res.setHeader('Content-Length', upload.size);
+      
+      const fileStream = fs.createReadStream(upload.path);
+      
+      fileStream.on('error', (error) => {
+        console.error('❌ Stream error:', error);
+        if (!res.headersSent) {
+          res.status(500).json({ 
+            success: false,
+            message: 'Error streaming file' 
+          });
+        }
       });
+      
+      fileStream.pipe(res);
+      return;
     }
 
-    console.log(`✅ Sending file: ${upload.originalName}`);
-
-    res.setHeader('Content-Type', upload.mimetype || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${upload.originalName}"`);
-    res.setHeader('Content-Length', upload.size);
-    
-    const fileStream = fs.createReadStream(upload.path);
-    
-    fileStream.on('error', (error) => {
-      console.error('❌ Stream error:', error);
-      if (!res.headersSent) {
-        res.status(500).json({ 
-          success: false,
-          message: 'Error streaming file' 
-        });
-      }
+    // ❌ PRIORITY 3: File not available anywhere
+    console.log('❌ File content not available in Cloudinary or local storage');
+    return res.status(404).json({ 
+      success: false,
+      message: 'File content unavailable (ephemeral storage cleaned)'
     });
-    
-    fileStream.pipe(res);
     
   } catch (error) {
     console.error('❌ Download error:', error);

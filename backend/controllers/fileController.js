@@ -69,6 +69,19 @@ export const downloadFile = async (req, res) => {
       return res.status(404).json({ error: "File not found in database" });
     }
 
+    // ✅ PRIORITY 1: If Cloudinary URL exists, redirect to it
+    if (file.cloudUrl) {
+      console.log('✅ Redirecting to Cloudinary URL:', file.cloudUrl);
+      return res.redirect(file.cloudUrl);
+    }
+
+    // ✅ PRIORITY 2: Try local file path
+    if (!file.path) {
+      return res.status(404).json({ 
+        error: "File content unavailable (ephemeral storage cleaned)" 
+      });
+    }
+
     // 🧩 Step 2: Define and resolve upload directory
     const uploadsDir = path.resolve("./uploads");
 
@@ -84,7 +97,9 @@ export const downloadFile = async (req, res) => {
 
     // 🧩 Step 5: Check if file exists
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "File not found on server" });
+      return res.status(404).json({ 
+        error: "File content unavailable (ephemeral storage cleaned)" 
+      });
     }
 
     // 🧩 Step 6: Get file stats
@@ -104,7 +119,7 @@ export const downloadFile = async (req, res) => {
 
     // 🧩 Step 8: Determine download filename
     const safeFilename =
-      file.originalname ||
+      file.originalName ||
       file.filename ||
       path.basename(filePath) ||
       `file_${fileId}`;
