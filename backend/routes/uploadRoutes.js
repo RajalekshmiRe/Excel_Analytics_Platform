@@ -1165,20 +1165,44 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
       mimetype: req.file.mimetype,
       isCloudStorage: isCloud,
       hasPath: !!req.file.path,
-      path: req.file.path
+      path: req.file.path,
+      // 🔍 DEBUG: See what multer gives us
+      fileKeys: Object.keys(req.file)
     });
 
-    // ✅ For Cloudinary: req.file.path IS the cloudUrl, req.file.filename IS the publicId
-    // ✅ For Local: req.file.path is local disk path
+    // ✅ CRITICAL FIX: Cloudinary storage puts URL in different places
+    let cloudUrl = null;
+    let cloudPublicId = null;
+    let localPath = null;
+
+    if (isCloud) {
+      // ✅ For CloudinaryStorage, the URL is in req.file.path
+      // And it's a FULL URL like: https://res.cloudinary.com/...
+      cloudUrl = req.file.path;
+      cloudPublicId = req.file.filename;
+      
+      console.log('☁️ Cloudinary upload detected:', {
+        cloudUrl,
+        cloudPublicId
+      });
+    } else {
+      // ✅ For local storage, just save the path
+      localPath = req.file.path;
+      
+      console.log('💾 Local upload detected:', {
+        localPath
+      });
+    }
+
     const newUpload = new Upload({
       userId,
       filename: req.file.originalname,
       originalName: req.file.originalname,
       
-      // ✅ CRITICAL: Store BOTH for backward compatibility
-      path: isCloud ? null : req.file.path,           // Local path only for local storage
-      cloudUrl: isCloud ? req.file.path : null,       // Cloudinary URL (multer puts it in path)
-      cloudPublicId: isCloud ? req.file.filename : null, // Cloudinary public ID
+      // ✅ Store correctly
+      path: localPath,              // null for cloud, path for local
+      cloudUrl: cloudUrl,            // Full URL for cloud, null for local
+      cloudPublicId: cloudPublicId,  // Public ID for cloud, null for local
       
       size: req.file.size,
       mimetype: req.file.mimetype,
@@ -1209,7 +1233,6 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
     });
   }
 });
-
 /* ============================================================
    ✅ GET /api/uploads - Get ALL user uploads
 ============================================================ */
