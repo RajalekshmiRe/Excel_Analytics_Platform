@@ -48,7 +48,7 @@ const uploadSchema = new mongoose.Schema(
       default: 'pending'
     },
 
-    // ✅ Analytics tracking (FIX)
+    // ✅ Analytics tracking
     chartCount: {
       type: Number,
       default: 0

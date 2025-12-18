@@ -1151,8 +1151,14 @@ const router = express.Router();
 
 router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'), async (req, res) => {
   try {
+    console.log('📦 Upload started');
+    
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      console.log('❌ No file in request');
+      return res.status(400).json({ 
+        success: false,
+        message: 'No file uploaded' 
+      });
     }
 
     const userId = req.user._id || req.user.id;
@@ -1172,21 +1178,16 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
     let cloudPublicId = null;
     let localPath = null;
 
-    if (isCloud) {
-      // ✅ Cloudinary puts the FULL URL in req.file.path
+    // ✅ ALWAYS accept the upload, regardless of storage type
+    if (isCloud && req.file.path && req.file.path.startsWith('http')) {
+      // Cloudinary worked correctly
       cloudUrl = req.file.path;
       cloudPublicId = req.file.filename;
-      
-      // ✅ Verify it's actually a URL
-      if (!cloudUrl.startsWith('http')) {
-        console.error('⚠️ WARNING: Cloudinary path is not a URL:', cloudUrl);
-        throw new Error('Invalid Cloudinary URL received');
-      }
-      
       console.log('☁️ Cloudinary upload:', { cloudUrl, cloudPublicId });
     } else {
+      // Local storage (or Cloudinary fallback)
       localPath = req.file.path;
-      console.log('💾 Local upload:', { localPath });
+      console.log('💾 Local storage:', { localPath });
     }
 
     const newUpload = new Upload({
@@ -1203,10 +1204,11 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
 
     await newUpload.save();
 
-    console.log('✅ Upload saved:', {
+    console.log('✅ Upload saved to DB:', {
       id: newUpload._id,
-      storage: isCloud ? 'Cloudinary' : 'Local',
-      cloudUrl: newUpload.cloudUrl
+      storage: cloudUrl ? 'Cloudinary' : 'Local',
+      cloudUrl: newUpload.cloudUrl,
+      localPath: newUpload.path
     });
 
     res.status(201).json({
@@ -1216,13 +1218,15 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
     });
   } catch (error) {
     console.error('❌ Upload error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'File upload failed',
+      message: 'File upload failed: ' + error.message,
       error: error.message
     });
   }
 });
+
 /* ============================================================
    ✅ GET /api/uploads - Get ALL user uploads
 ============================================================ */
@@ -1430,6 +1434,7 @@ router.get('/:id/download', protect, async (req, res) => {
     }
   }
 });
+
 /* ============================================================
    ✅ GET /api/uploads/:id - Get single upload details
 ============================================================ */

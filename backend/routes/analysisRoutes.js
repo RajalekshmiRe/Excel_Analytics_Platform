@@ -23,11 +23,13 @@ router.get('/analytics', protect, getAnalytics);
 // ✅ Existing chart endpoint
 router.post('/chart', protect, chartData);
 
-// ✅ Update chart counts
-router.patch('/chart-count/:id', protect, logOperation("GENERATE_CHART"), chartCountUpdate);
+// ✅ Update chart counts - FIXED ROUTES TO MATCH FRONTEND
+router.patch('/chart/:id', protect, logOperation("GENERATE_CHART"), chartCountUpdate);
+router.patch('/chart/:uploadId', protect, logOperation("GENERATE_CHART"), chartCountUpdate);
 
-// ✅ Update reports counts
-router.patch('/report-count/:id', protect, logOperation("GENERATE_REPORT"), reportCountUpdate);
+// ✅ Update report counts - FIXED ROUTES TO MATCH FRONTEND
+router.patch('/report/:id', protect, logOperation("GENERATE_REPORT"), reportCountUpdate);
+router.patch('/report/:uploadId', protect, logOperation("GENERATE_REPORT"), reportCountUpdate);
 
 // ✅ User stats - MUST be LAST (dynamic route)
 router.get('/:userId', protect, viewUserDetails);
