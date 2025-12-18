@@ -154,7 +154,7 @@ const hasCloudinaryCredentials = () => !!(
   process.env.CLOUDINARY_API_SECRET
 );
 
-// ✅ FIXED: Configure Cloudinary immediately if credentials exist
+// ✅ Configure Cloudinary immediately if credentials exist
 if (hasCloudinaryCredentials()) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -172,7 +172,7 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ✅ FIXED: Create storage instances ONCE at module load
+// ✅ Create storage instances ONCE at module load
 let cloudinaryStorage = null;
 let localStorage = null;
 
@@ -199,23 +199,38 @@ if (hasCloudinaryCredentials()) {
   console.log('✅ Local storage created');
 }
 
-// File filter for Excel/CSV
-const excelFileFilter = (_, file, cb) => {
-  const allowed = [
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/csv',
-    'application/octet-stream'
-  ];
-  const ext = /xlsx|xls|csv/.test(path.extname(file.originalname).toLowerCase());
-  cb(null, allowed.includes(file.mimetype) || ext);
+// ✅ SUPER PERMISSIVE: Accept file based ONLY on extension
+const excelFileFilter = (req, file, cb) => {
+  console.log('📄 File filter check:', {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size
+  });
+
+  // Get file extension
+  const ext = path.extname(file.originalname).toLowerCase();
+  
+  // Only check extension, ignore mimetype (browsers send different mimetypes)
+  if (['.csv', '.xls', '.xlsx'].includes(ext)) {
+    console.log('✅ File accepted by extension:', ext);
+    return cb(null, true);
+  }
+  
+  console.log('❌ File rejected - invalid extension:', ext);
+  return cb(
+    new Error(`Invalid file type. Only .csv, .xls, and .xlsx files are allowed. Got: ${ext || 'no extension'}`),
+    false
+  );
 };
 
-// ✅ FIXED: Use pre-created storage instances
+// ✅ Use pre-created storage instances
 export const uploadExcel = multer({
   storage: cloudinaryStorage || localStorage,
   fileFilter: excelFileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+  limits: { 
+    fileSize: 50 * 1024 * 1024, // 50MB
+    files: 1
+  }
 });
 
 // Direct Cloudinary upload
@@ -257,7 +272,7 @@ export const isCloudStorage = () => hasCloudinaryCredentials();
 // Export cloudinary instance
 export { cloudinary };
 
-// Initialization function (for logging only, config already done above)
+// Initialization function
 export const initializeCloudinary = () => {
   console.log('\n📦 Cloudinary Status Check:');
   console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
