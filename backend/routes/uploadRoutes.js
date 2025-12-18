@@ -1161,31 +1161,45 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
 
     const userId = req.user._id || req.user.id;
 
- // ✅ CORRECTED: Store in the right fields based on environment
-const newUpload = new Upload({
-  userId: userId,
-  filename: req.file.originalname,
-  originalName: req.file.originalname,
-  
-  // ✅ For LOCAL: store in 'path'
-  path: !isCloudStorage() ? req.file.path : null,
-  
-  // ✅ For CLOUDINARY: store in 'cloudUrl' and 'cloudPublicId'
-  cloudUrl: isCloudStorage() ? req.file.path : null,
-  cloudPublicId: isCloudStorage() ? req.file.filename : null,
-  
-  size: req.file.size,
-  mimetype: req.file.mimetype,
-  status: 'processed',
-  chartCount: 0,
-  reportCount: 0
-});
+    console.log('📦 Upload details:', {
+      originalname: req.file.originalname,
+      filename: req.file.filename,
+      path: req.file.path,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      isProduction: isCloudStorage(),
+      NODE_ENV: process.env.NODE_ENV
+    });
+
+    // ✅ CRITICAL FIX: Determine storage type and extract correct fields
+    const isCloud = isCloudStorage();
+    
+    const newUpload = new Upload({
+      userId: userId,
+      filename: req.file.originalname,
+      originalName: req.file.originalname,
+      
+      // ✅ CRITICAL: Store in correct field based on environment
+      path: !isCloud ? req.file.path : null,
+      cloudUrl: isCloud ? req.file.path : null,
+      cloudPublicId: isCloud ? (req.file.filename || req.file.public_id) : null,
+      
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      status: 'processed',
+      chartCount: 0,
+      reportCount: 0
+    });
+
     await newUpload.save();
 
     console.log('✅ File uploaded successfully:', {
       id: newUpload._id,
       filename: newUpload.originalName,
-      storage: isCloudStorage() ? 'Cloudinary' : 'Local',
+      storage: isCloud ? 'Cloudinary' : 'Local',
+      cloudUrl: newUpload.cloudUrl,
+      path: newUpload.path,
+      cloudPublicId: newUpload.cloudPublicId,
       userId: userId
     });
 
@@ -1196,6 +1210,7 @@ const newUpload = new Upload({
     });
   } catch (error) {
     console.error('❌ Upload error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'File upload failed',

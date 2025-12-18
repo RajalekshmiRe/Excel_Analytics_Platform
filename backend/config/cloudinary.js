@@ -106,3 +106,10 @@ export { cloudinary };
 
 console.log(`📦 Excel Analytics Storage Mode: ${isProduction ? 'CLOUDINARY (Production)' : 'LOCAL (Development)'}`);
 console.log(`📁 Cloudinary folder: excel-analytics-platform/`);
+console.log('🔧 Cloudinary Configuration Check:');
+console.log('  - NODE_ENV:', process.env.NODE_ENV);
+console.log('  - Is Production:', isProduction);
+console.log('  - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
+console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
+console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
+console.log('  - Using Storage:', isProduction ? 'CLOUDINARY' : 'LOCAL');
