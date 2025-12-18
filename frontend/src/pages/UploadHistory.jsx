@@ -695,9 +695,347 @@
 // export default UploadHistory;
 
 
+// import React, { useState, useEffect } from "react";
+// import { useNavigate, useLocation } from "react-router-dom";
+// import { Clock, FileText, TrendingUp, Trash2, BarChart3, AlertCircle, Upload } from "lucide-react";
+// import api from "../api";
+// import toast, { Toaster } from "react-hot-toast";
+
+// const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
+//   const navigate = useNavigate();
+//   const location = useLocation();
+//   const [history, setHistory] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   const fetchHistory = async () => {
+//     setLoading(true);
+//     setError("");
+//     try {
+//       const token = localStorage.getItem("token");
+//       if (!token) {
+//         navigate("/login");
+//         return;
+//       }
+
+//       const res = await api.get("/uploads/history", {
+//         headers: { Authorization: `Bearer ${token}` },
+//       });
+      
+//       console.log("Fetched history:", res.data);
+      
+//       const historyData = Array.isArray(res.data) ? res.data : res.data.uploads || [];
+//       // ✅ ADD THIS: Debug file sizes
+// console.log("📊 File size debugging:");
+// historyData.forEach((item, idx) => {
+//   console.log(`File ${idx + 1}:`, {
+//     filename: item.filename || item.originalname,
+//     size: item.size,
+//     filesize: item.filesize,
+//     fileSize: item.fileSize
+//   });
+// });
+//       setHistory(historyData);
+//     } catch (error) {
+//       console.error("Error fetching uploads history:", error);
+//       setError(error.response?.data?.message || "Failed to load upload history");
+//       toast.error(error.response?.data?.message || "Failed to load upload history");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+// useEffect(() => {
+//     // Initial fetch
+//     fetchHistory();
+    
+//     // Refresh on window focus
+//     const handleFocus = () => {
+//       console.log("👁️ Window focused, refreshing upload history...");
+//       fetchHistory();
+//     };
+//     window.addEventListener('focus', handleFocus);
+    
+//     // Auto-refresh every 30 seconds
+//     const interval = setInterval(() => {
+//       console.log("🔄 Auto-refreshing upload history...");
+//       fetchHistory();
+//     }, 30000);
+    
+//     // Cleanup
+//     return () => {
+//       window.removeEventListener('focus', handleFocus);
+//       clearInterval(interval);
+//     };
+//   }, [location.pathname]); // Only re-run if URL changes
+
+//   const handleDelete = async (fileId) => {
+//     if (!window.confirm("Are you sure you want to delete this file?")) return;
+
+//     try {
+//       const token = localStorage.getItem("token");
+//       await api.delete(`/uploads/${fileId}`, {
+//         headers: { Authorization: `Bearer ${token}` },
+//       });
+      
+//       toast.success("File deleted successfully!");
+//       fetchHistory();
+//     } catch (error) {
+//       console.error("Error deleting file:", error);
+//       toast.error(error.response?.data?.message || "Failed to delete file. Please try again.");
+//     }
+//   };
+
+//  const handleAnalyze = (item) => {
+//   navigate(`/dashboard/analysis/${item._id || item.id}`);
+// };
+// const formatFileSize = (bytes) => {
+//   // Handle undefined/null
+//   if (bytes === undefined || bytes === null) return "Unknown";
+  
+//   // Handle actual zero bytes (empty files)
+//   if (bytes === 0) return "0 MB";
+  
+//   // Convert to MB
+//   const mb = bytes / (1024 * 1024);
+  
+//   // If less than 0.01 MB, show in KB
+//   if (mb < 0.01) {
+//     const kb = bytes / 1024;
+//     return `${kb.toFixed(2)} KB`;
+//   }
+  
+//   return `${mb.toFixed(2)} MB`;
+// };
+
+//   const getStatusColor = (status) => {
+//     switch (status?.toLowerCase()) {
+//       case "processed":
+//         return "bg-green-100 text-green-600";
+//       case "pending":
+//         return "bg-yellow-100 text-yellow-600";
+//       case "processing":
+//         return "bg-blue-100 text-blue-600";
+//       case "failed":
+//         return "bg-red-100 text-red-600";
+//       default:
+//         return "bg-gray-100 text-gray-600";
+//     }
+//   };
+
+//   // 🎨 Light theme to match Settings and other pages
+//   const bgColor = "bg-gradient-to-b from-[#f8f9fa] to-[#e9ecef]";
+//   const cardBg = "bg-white";
+//   const textColor = "text-gray-900";
+//   const borderColor = "border-gray-200";
+//   const accentGradient = "from-[#bc4e9c] to-[#f80759]";
+
+//   if (loading) {
+//     return (
+//       <div className={`min-h-screen ${bgColor} flex items-center justify-center`}>
+//         <div className="text-center">
+//           <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#bc4e9c] border-t-transparent mx-auto mb-4"></div>
+//           <p className={`${textColor} font-semibold text-lg`}>Loading upload history...</p>
+//           <p className="text-gray-500 text-sm mt-2">Please wait...</p>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className={`min-h-screen ${bgColor} p-8`}>
+//       <Toaster position="top-center" />
+      
+//       <div className="max-w-7xl mx-auto">
+//         {/* Header - NO REFRESH BUTTON */}
+//         <div className="mb-8">
+//           <div className="flex items-center justify-between mb-4">
+//             <div>
+//               <h1 className={`text-4xl lg:text-5xl font-bold ${textColor} mb-2`}>
+//                 Upload History
+//               </h1>
+//               <p className="text-gray-600 text-lg">
+//                 View and manage all your uploaded files
+//               </p>
+//             </div>
+//           </div>
+//           <hr className="border-t-2 border-[#bc4e9c]" />
+//         </div>
+
+//         {/* Error Message */}
+//         {error && (
+//           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center gap-3">
+//             <AlertCircle className="w-5 h-5 text-red-500" />
+//             <p className="text-red-800 font-medium">{error}</p>
+//           </div>
+//         )}
+
+//         {/* Stats Overview */}
+//         {history.length > 0 && (
+//           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+//             <div className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}>
+//               <div className="flex items-center justify-between">
+//                 <div>
+//                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Files</p>
+//                   <p className={`text-4xl font-bold ${textColor}`}>{history.length}</p>
+//                 </div>
+//                 <div className={`w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg`}>
+//                   <FileText className="w-7 h-7 text-white" />
+//                 </div>
+//               </div>
+//             </div>
+
+//             <div className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}>
+//               <div className="flex items-center justify-between">
+//                 <div>
+//                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Storage</p>
+//                   <p className={`text-4xl font-bold ${textColor}`}>
+//   {formatFileSize(
+//     history.reduce((sum, item) => {
+//       const fileSize = item.size || item.filesize || item.fileSize || 0;
+//       return sum + fileSize;
+//     }, 0)
+//   )}
+// </p>
+//                 </div>
+//                 <div className={`w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg`}>
+//                   <TrendingUp className="w-7 h-7 text-white" />
+//                 </div>
+//               </div>
+//             </div>
+
+//             <div className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}>
+//               <div className="flex items-center justify-between">
+//                 <div>
+//                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Latest Upload</p>
+//                   <p className={`text-lg font-bold ${textColor}`}>
+//                     {new Date(history[0].createdAt || history[0].uploadedAt).toLocaleDateString("en-US", {
+//                       month: "short",
+//                       day: "numeric",
+//                       year: "numeric"
+//                     })}
+//                   </p>
+//                 </div>
+//                 <div className={`w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg`}>
+//                   <Clock className="w-7 h-7 text-white" />
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         )}
+
+//         {/* Files Grid */}
+//         {history.length > 0 ? (
+//           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//             {history.map((item, index) => (
+//               <div
+//                 key={item._id || item.id || index}
+//                 className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}
+//               >
+//                 {/* File Icon & Name */}
+//                 <div className="flex items-start gap-3 mb-4">
+//                   <div className={`w-12 h-12 bg-gradient-to-br ${accentGradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg`}>
+//                     <FileText className="w-6 h-6 text-white" />
+//                   </div>
+//                   <div className="flex-1 min-w-0">
+//                     <h3 className={`font-bold text-lg ${textColor} truncate mb-1`}>
+//                       {item.filename || item.originalname}
+//                     </h3>
+//                     <span className="text-xs text-gray-500 uppercase font-semibold">
+//                       {(item.filename || item.originalname || '').split(".").pop()}
+//                     </span>
+//                   </div>
+//                 </div>
+
+//                 {/* File Details */}
+//                 <div className="space-y-3 mb-4 bg-gray-50 rounded-lg p-4 border border-gray-100">
+//                  <div className="flex justify-between items-center">
+//   <span className="text-sm text-gray-600">Size:</span>
+//   <span className="text-sm font-semibold text-gray-900">
+//     {formatFileSize(item.size || item.filesize || item.fileSize || 0)}
+//   </span>
+// </div>
+//                   <div className="flex justify-between items-center">
+//                     <span className="text-sm text-gray-600">Uploaded:</span>
+//                     <span className="text-sm font-semibold text-gray-900">
+//                       {new Date(item.createdAt || item.uploadedAt).toLocaleDateString("en-US", {
+//                         month: "short",
+//                         day: "numeric",
+//                         year: "numeric"
+//                       })}
+//                     </span>
+//                   </div>
+//                   <div className="flex justify-between items-center">
+//                     <span className="text-sm text-gray-600">Status:</span>
+//                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(item.status)}`}>
+//                       {item.status || "Ready"}
+//                     </span>
+//                   </div>
+//                   {(item.chartCount !== undefined || item.reportCount !== undefined) && (
+//                     <>
+//                       <div className="flex justify-between items-center">
+//                         <span className="text-sm text-gray-600">Charts:</span>
+//                         <span className="text-sm font-semibold text-gray-900">{item.chartCount || 0}</span>
+//                       </div>
+//                       <div className="flex justify-between items-center">
+//                         <span className="text-sm text-gray-600">Reports:</span>
+//                         <span className="text-sm font-semibold text-gray-900">{item.reportCount || 0}</span>
+//                       </div>
+//                     </>
+//                   )}
+//                 </div>
+
+//                 {/* Action Buttons - FIXED ANALYZE BUTTON */}
+//                 <div className="flex gap-2">
+//                   <button
+//                     onClick={() => handleAnalyze(item)}
+//                     className={`flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
+//                     title="Analyze File"
+//                   >
+//                     <BarChart3 className="w-4 h-4" />
+//                     Analyze
+//                   </button>
+//                   <button
+//                     onClick={() => handleDelete(item._id || item.id)}
+//                     className="px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+//                     title="Delete File"
+//                   >
+//                     <Trash2 className="w-4 h-4" />
+//                   </button>
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         ) : (
+//           <div className={`${cardBg} rounded-3xl shadow-2xl border-2 border-gray-200 p-12 text-center`}>
+//             <div className={`w-24 h-24 bg-gradient-to-br ${accentGradient} rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl`}>
+//               <Upload className="w-12 h-12 text-white" />
+//             </div>
+//             <h3 className={`text-2xl font-bold ${textColor} mb-3`}>No Uploads Yet</h3>
+//             <p className="text-gray-600 mb-8 text-lg">
+//               Upload your first file to see it here
+//             </p>
+//             <button
+//               onClick={() => navigate("/dashboard")}
+//               className={`px-8 py-4 bg-gradient-to-r ${accentGradient} text-white rounded-xl font-bold text-lg hover:shadow-xl hover:scale-105 transition-all shadow-lg`}
+//             >
+//               Go to Dashboard
+//             </button>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default UploadHistory;
+
+
+
+
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Clock, FileText, TrendingUp, Trash2, BarChart3, AlertCircle, Upload } from "lucide-react";
+import { Clock, FileText, TrendingUp, Trash2, BarChart3, AlertCircle, Upload, Download } from "lucide-react";
 import api from "../api";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -722,19 +1060,7 @@ const UploadHistory = ({ theme = "light", onNavigateToDashboard }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
       
-      console.log("Fetched history:", res.data);
-      
       const historyData = Array.isArray(res.data) ? res.data : res.data.uploads || [];
-      // ✅ ADD THIS: Debug file sizes
-console.log("📊 File size debugging:");
-historyData.forEach((item, idx) => {
-  console.log(`File ${idx + 1}:`, {
-    filename: item.filename || item.originalname,
-    size: item.size,
-    filesize: item.filesize,
-    fileSize: item.fileSize
-  });
-});
       setHistory(historyData);
     } catch (error) {
       console.error("Error fetching uploads history:", error);
@@ -745,29 +1071,23 @@ historyData.forEach((item, idx) => {
     }
   };
 
-useEffect(() => {
-    // Initial fetch
+  useEffect(() => {
     fetchHistory();
     
-    // Refresh on window focus
     const handleFocus = () => {
-      console.log("👁️ Window focused, refreshing upload history...");
       fetchHistory();
     };
     window.addEventListener('focus', handleFocus);
     
-    // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
-      console.log("🔄 Auto-refreshing upload history...");
       fetchHistory();
     }, 30000);
     
-    // Cleanup
     return () => {
       window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
-  }, [location.pathname]); // Only re-run if URL changes
+  }, [location.pathname]);
 
   const handleDelete = async (fileId) => {
     if (!window.confirm("Are you sure you want to delete this file?")) return;
@@ -786,27 +1106,60 @@ useEffect(() => {
     }
   };
 
- const handleAnalyze = (item) => {
-  navigate(`/dashboard/analysis/${item._id || item.id}`);
-};
-const formatFileSize = (bytes) => {
-  // Handle undefined/null
-  if (bytes === undefined || bytes === null) return "Unknown";
-  
-  // Handle actual zero bytes (empty files)
-  if (bytes === 0) return "0 MB";
-  
-  // Convert to MB
-  const mb = bytes / (1024 * 1024);
-  
-  // If less than 0.01 MB, show in KB
-  if (mb < 0.01) {
-    const kb = bytes / 1024;
-    return `${kb.toFixed(2)} KB`;
-  }
-  
-  return `${mb.toFixed(2)} MB`;
-};
+  const handleAnalyze = (item) => {
+    navigate(`/dashboard/analysis/${item._id || item.id}`);
+  };
+
+  // ✅ NEW: Handle download with proper error handling
+  const handleDownload = async (item) => {
+    const fileId = item._id || item.id;
+    const filename = item.filename || item.originalname || item.originalName || 'file';
+    
+    try {
+      const token = localStorage.getItem("token");
+      
+      const response = await api.get(`/uploads/${fileId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob'
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('File downloaded successfully!', { duration: 2000 });
+    } catch (error) {
+      console.error('Download error:', error);
+      
+      if (error.response?.status === 404) {
+        toast.error('File no longer available on server. It may have been cleaned up.', {
+          duration: 5000,
+          icon: '⚠️'
+        });
+      } else {
+        toast.error('Failed to download file. Please try again.', { duration: 3000 });
+      }
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === undefined || bytes === null) return "Unknown";
+    if (bytes === 0) return "0 MB";
+    
+    const mb = bytes / (1024 * 1024);
+    if (mb < 0.01) {
+      const kb = bytes / 1024;
+      return `${kb.toFixed(2)} KB`;
+    }
+    
+    return `${mb.toFixed(2)} MB`;
+  };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -823,7 +1176,6 @@ const formatFileSize = (bytes) => {
     }
   };
 
-  // 🎨 Light theme to match Settings and other pages
   const bgColor = "bg-gradient-to-b from-[#f8f9fa] to-[#e9ecef]";
   const cardBg = "bg-white";
   const textColor = "text-gray-900";
@@ -847,7 +1199,6 @@ const formatFileSize = (bytes) => {
       <Toaster position="top-center" />
       
       <div className="max-w-7xl mx-auto">
-        {/* Header - NO REFRESH BUTTON */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -862,7 +1213,6 @@ const formatFileSize = (bytes) => {
           <hr className="border-t-2 border-[#bc4e9c]" />
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500" />
@@ -870,7 +1220,6 @@ const formatFileSize = (bytes) => {
           </div>
         )}
 
-        {/* Stats Overview */}
         {history.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}>
@@ -890,13 +1239,13 @@ const formatFileSize = (bytes) => {
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Storage</p>
                   <p className={`text-4xl font-bold ${textColor}`}>
-  {formatFileSize(
-    history.reduce((sum, item) => {
-      const fileSize = item.size || item.filesize || item.fileSize || 0;
-      return sum + fileSize;
-    }, 0)
-  )}
-</p>
+                    {formatFileSize(
+                      history.reduce((sum, item) => {
+                        const fileSize = item.size || item.filesize || item.fileSize || 0;
+                        return sum + fileSize;
+                      }, 0)
+                    )}
+                  </p>
                 </div>
                 <div className={`w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg`}>
                   <TrendingUp className="w-7 h-7 text-white" />
@@ -924,7 +1273,6 @@ const formatFileSize = (bytes) => {
           </div>
         )}
 
-        {/* Files Grid */}
         {history.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {history.map((item, index) => (
@@ -932,7 +1280,6 @@ const formatFileSize = (bytes) => {
                 key={item._id || item.id || index}
                 className={`${cardBg} rounded-2xl shadow-xl border-2 ${borderColor} p-6 hover:shadow-2xl hover:scale-105 transition-all`}
               >
-                {/* File Icon & Name */}
                 <div className="flex items-start gap-3 mb-4">
                   <div className={`w-12 h-12 bg-gradient-to-br ${accentGradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg`}>
                     <FileText className="w-6 h-6 text-white" />
@@ -947,14 +1294,13 @@ const formatFileSize = (bytes) => {
                   </div>
                 </div>
 
-                {/* File Details */}
                 <div className="space-y-3 mb-4 bg-gray-50 rounded-lg p-4 border border-gray-100">
-                 <div className="flex justify-between items-center">
-  <span className="text-sm text-gray-600">Size:</span>
-  <span className="text-sm font-semibold text-gray-900">
-    {formatFileSize(item.size || item.filesize || item.fileSize || 0)}
-  </span>
-</div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Size:</span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatFileSize(item.size || item.filesize || item.fileSize || 0)}
+                    </span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Uploaded:</span>
                     <span className="text-sm font-semibold text-gray-900">
@@ -971,29 +1317,24 @@ const formatFileSize = (bytes) => {
                       {item.status || "Ready"}
                     </span>
                   </div>
-                  {(item.chartCount !== undefined || item.reportCount !== undefined) && (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Charts:</span>
-                        <span className="text-sm font-semibold text-gray-900">{item.chartCount || 0}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Reports:</span>
-                        <span className="text-sm font-semibold text-gray-900">{item.reportCount || 0}</span>
-                      </div>
-                    </>
-                  )}
                 </div>
 
-                {/* Action Buttons - FIXED ANALYZE BUTTON */}
+                {/* ✅ FIXED: Three-button layout */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleAnalyze(item)}
-                    className={`flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-cyan-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                     title="Analyze File"
                   >
                     <BarChart3 className="w-4 h-4" />
                     Analyze
+                  </button>
+                  <button
+                    onClick={() => handleDownload(item)}
+                    className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-semibold hover:from-green-600 hover:to-emerald-600 hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+                    title="Download File"
+                  >
+                    <Download className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(item._id || item.id)}
