@@ -1164,46 +1164,38 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
       size: req.file.size,
       mimetype: req.file.mimetype,
       isCloudStorage: isCloud,
-      hasPath: !!req.file.path,
       path: req.file.path,
-      // 🔍 DEBUG: See what multer gives us
       fileKeys: Object.keys(req.file)
     });
 
-    // ✅ CRITICAL FIX: Cloudinary storage puts URL in different places
     let cloudUrl = null;
     let cloudPublicId = null;
     let localPath = null;
 
     if (isCloud) {
-      // ✅ For CloudinaryStorage, the URL is in req.file.path
-      // And it's a FULL URL like: https://res.cloudinary.com/...
+      // ✅ Cloudinary puts the FULL URL in req.file.path
       cloudUrl = req.file.path;
       cloudPublicId = req.file.filename;
       
-      console.log('☁️ Cloudinary upload detected:', {
-        cloudUrl,
-        cloudPublicId
-      });
-    } else {
-      // ✅ For local storage, just save the path
-      localPath = req.file.path;
+      // ✅ Verify it's actually a URL
+      if (!cloudUrl.startsWith('http')) {
+        console.error('⚠️ WARNING: Cloudinary path is not a URL:', cloudUrl);
+        throw new Error('Invalid Cloudinary URL received');
+      }
       
-      console.log('💾 Local upload detected:', {
-        localPath
-      });
+      console.log('☁️ Cloudinary upload:', { cloudUrl, cloudPublicId });
+    } else {
+      localPath = req.file.path;
+      console.log('💾 Local upload:', { localPath });
     }
 
     const newUpload = new Upload({
       userId,
       filename: req.file.originalname,
       originalName: req.file.originalname,
-      
-      // ✅ Store correctly
-      path: localPath,              // null for cloud, path for local
-      cloudUrl: cloudUrl,            // Full URL for cloud, null for local
-      cloudPublicId: cloudPublicId,  // Public ID for cloud, null for local
-      
+      path: localPath,
+      cloudUrl: cloudUrl,
+      cloudPublicId: cloudPublicId,
       size: req.file.size,
       mimetype: req.file.mimetype,
       status: 'processed'
@@ -1211,12 +1203,10 @@ router.post('/', protect, logOperation('UPLOAD_FILE'), uploadExcel.single('file'
 
     await newUpload.save();
 
-    console.log('✅ File uploaded successfully:', {
+    console.log('✅ Upload saved:', {
       id: newUpload._id,
-      filename: newUpload.originalName,
       storage: isCloud ? 'Cloudinary' : 'Local',
-      cloudUrl: newUpload.cloudUrl,
-      localPath: newUpload.path
+      cloudUrl: newUpload.cloudUrl
     });
 
     res.status(201).json({
