@@ -141,6 +141,10 @@
 // console.log('  - Using Storage:', useCloudinary ? '☁️ CLOUDINARY' : '💾 LOCAL');
 // console.log('  - Storage folder:', useCloudinary ? 'excel-analytics-platform/' : 'uploads/');
 // console.log('');
+
+
+
+
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
@@ -161,7 +165,7 @@ if (hasCloudinaryCredentials()) {
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
   });
-  console.log('✅ Cloudinary configured immediately:', process.env.CLOUDINARY_CLOUD_NAME);
+  console.log('✅ Cloudinary configured:', process.env.CLOUDINARY_CLOUD_NAME);
 } else {
   console.log('⚠️ Cloudinary credentials not found - using local storage');
 }
@@ -174,58 +178,76 @@ if (!fs.existsSync(uploadDir)) {
 
 // ✅ Create storage instances ONCE at module load
 let cloudinaryStorage = null;
-let localStorage = null;
+let localStorageEngine = null;
 
 if (hasCloudinaryCredentials()) {
-  console.log('📦 Creating Cloudinary storage instance...');
+  console.log('📦 Creating Cloudinary storage...');
+  
   cloudinaryStorage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-      folder: 'excel-analytics-platform',
-      resource_type: 'raw',
-      allowed_formats: ['csv', 'xls', 'xlsx'],
-      use_filename: true,
-      unique_filename: true
+    params: (req, file) => {
+      // ✅ CRITICAL: This must be a FUNCTION that returns params
+      const ext = path.extname(file.originalname).substring(1) || 'csv';
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      console.log('☁️ Cloudinary upload params:', {
+        originalname: file.originalname,
+        ext,
+        uniqueId
+      });
+      
+      return {
+        folder: 'excel-analytics-platform',
+        resource_type: 'raw', // Critical for non-image files
+        format: ext,
+        public_id: `file-${uniqueId}`,
+        use_filename: false, // Use our custom public_id instead
+        unique_filename: false // We're already making it unique
+      };
     }
   });
+  
   console.log('✅ Cloudinary storage created');
 } else {
-  console.log('📦 Creating local disk storage instance...');
-  localStorage = multer.diskStorage({
-    destination: (_, __, cb) => cb(null, uploadDir),
-    filename: (_, file, cb) =>
-      cb(null, 'file-' + Date.now() + '-' + Math.round(Math.random() * 1e9) + path.extname(file.originalname))
+  console.log('📦 Creating local disk storage...');
+  
+  localStorageEngine = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueName = `file-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
+      cb(null, uniqueName);
+    }
   });
+  
   console.log('✅ Local storage created');
 }
 
-// ✅ SUPER PERMISSIVE: Accept file based ONLY on extension
+// ✅ File filter - Accept files based on extension only
 const excelFileFilter = (req, file, cb) => {
-  console.log('📄 File filter check:', {
+  console.log('📄 File filter:', {
     originalname: file.originalname,
     mimetype: file.mimetype,
     size: file.size
   });
 
-  // Get file extension
   const ext = path.extname(file.originalname).toLowerCase();
   
-  // Only check extension, ignore mimetype (browsers send different mimetypes)
   if (['.csv', '.xls', '.xlsx'].includes(ext)) {
-    console.log('✅ File accepted by extension:', ext);
+    console.log('✅ File accepted:', ext);
     return cb(null, true);
   }
   
-  console.log('❌ File rejected - invalid extension:', ext);
-  return cb(
-    new Error(`Invalid file type. Only .csv, .xls, and .xlsx files are allowed. Got: ${ext || 'no extension'}`),
-    false
-  );
+  console.log('❌ File rejected:', ext);
+  const error = new Error(`Invalid file type. Only CSV, XLS, and XLSX files allowed. Got: ${ext}`);
+  error.code = 'INVALID_FILE_TYPE';
+  return cb(error, false);
 };
 
-// ✅ Use pre-created storage instances
+// ✅ Create multer instance with proper storage
 export const uploadExcel = multer({
-  storage: cloudinaryStorage || localStorage,
+  storage: cloudinaryStorage || localStorageEngine,
   fileFilter: excelFileFilter,
   limits: { 
     fileSize: 50 * 1024 * 1024, // 50MB
@@ -233,7 +255,7 @@ export const uploadExcel = multer({
   }
 });
 
-// Direct Cloudinary upload
+// Direct Cloudinary upload (for programmatic uploads)
 export const uploadCloudinary = async (filePathOrBuffer, options = {}) => {
   if (!hasCloudinaryCredentials()) {
     throw new Error('Cloudinary credentials not configured');
@@ -247,21 +269,41 @@ export const uploadCloudinary = async (filePathOrBuffer, options = {}) => {
   });
 };
 
-// Delete helper
+// Delete from Cloudinary
 export const deleteFromCloudinary = async (publicId) => {
-  if (!hasCloudinaryCredentials()) return { result: 'skipped' };
-  return cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+  if (!hasCloudinaryCredentials()) {
+    console.log('⚠️ Skipping Cloudinary delete (no credentials)');
+    return { result: 'skipped' };
+  }
+  
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, { 
+      resource_type: 'raw' 
+    });
+    console.log('✅ Deleted from Cloudinary:', publicId);
+    return result;
+  } catch (error) {
+    console.error('❌ Cloudinary delete error:', error);
+    throw error;
+  }
 };
 
-// Public ID extractor
+// Extract public ID from Cloudinary URL
 export const getPublicIdFromUrl = (url) => {
   if (!url) return null;
   try {
     const parts = url.split('/');
-    const idx = parts.indexOf('upload');
-    if (idx === -1) return null;
-    return parts.slice(idx + 2).join('/').replace(/\.[^/.]+$/, '');
-  } catch {
+    const uploadIndex = parts.indexOf('upload');
+    if (uploadIndex === -1) return null;
+    
+    // Get everything after 'upload' and version number
+    const pathParts = parts.slice(uploadIndex + 2);
+    const publicIdWithExt = pathParts.join('/');
+    
+    // Remove file extension
+    return publicIdWithExt.replace(/\.[^/.]+$/, '');
+  } catch (error) {
+    console.error('Error extracting public ID:', error);
     return null;
   }
 };
@@ -272,14 +314,13 @@ export const isCloudStorage = () => hasCloudinaryCredentials();
 // Export cloudinary instance
 export { cloudinary };
 
-// Initialization function
+// Initialization logging
 export const initializeCloudinary = () => {
-  console.log('\n📦 Cloudinary Status Check:');
-  console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
+  console.log('\n📦 Storage Configuration:');
+  console.log('  - Environment:', process.env.NODE_ENV || 'development');
   console.log('  - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ Not set');
   console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Not set');
   console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Not set');
-  console.log('  - Credentials:', hasCloudinaryCredentials() ? '✅ Available' : '❌ Missing');
-  console.log('  - Storage Mode:', hasCloudinaryCredentials() ? 'Cloudinary ☁️' : 'Local Disk 💾');
+  console.log('  - Storage Mode:', hasCloudinaryCredentials() ? '☁️  Cloudinary' : '💾 Local Disk');
   console.log('');
 };
