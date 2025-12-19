@@ -199,18 +199,24 @@ export default function ManageUsers() {
     }, []);
 
     const fetchUsers = async () => {
-        try {
-        setLoading(true);
-        const response = await adminAPI.getAllUsers();
-        setUsers(response.data?.users || []);
-        setError(null);
-        } catch (err) {
-        console.error("Error fetching users:", err);
-        setError("Failed to load users");
-        } finally {
-        setLoading(false);
-        }
-    };
+  try {
+    setLoading(true);
+    const response = await adminAPI.getAllUsers();
+    
+    // ✅ DEFENSIVE: Filter out any non-user roles (just in case backend fails)
+    const regularUsers = (response.data?.users || []).filter(
+      user => user.role === 'user'
+    );
+    
+    setUsers(regularUsers);
+    setError(null);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    setError("Failed to load users");
+  } finally {
+    setLoading(false);
+  }
+};
 
     const handleToggleStatus = async (userId) => {
         try {
