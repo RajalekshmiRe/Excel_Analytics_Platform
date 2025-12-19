@@ -33,10 +33,11 @@ export const getSuperAdminStats = async (req, res) => {
   }
 };
 
-// Get all users (including regular users and admins)
+// Get all users (excluding superadmins)
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find()
+    // ✅ FIXED: Only get regular users, exclude superadmins
+    const users = await User.find({ role: 'user' })
       .select('-password')
       .sort({ createdAt: -1 });
 

@@ -4,10 +4,11 @@ import Upload from "../models/Upload.js";
 import Settings from '../models/Settings.js';
 import Operation from "../models/Operation.js";
 
-// Get all users
+// Get all users (admins can only see regular users)
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find()
+    // ✅ FIXED: Admins can only see regular users, NOT other admins or superadmins
+    const users = await User.find({ role: 'user' })
       .select('-password')
       .sort({ createdAt: -1 });
 
